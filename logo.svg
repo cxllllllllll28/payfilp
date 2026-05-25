@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="c" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FFCC"/>
+      <stop offset="100%" stop-color="#FF00AA"/>
+    </linearGradient>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFCC00"/>
+      <stop offset="100%" stop-color="#FF6600"/>
+    </linearGradient>
+    <filter id="r">
+      <feTurbulence type="turbulence" baseFrequency="0.04" numOctaves="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+  <g transform="rotate(-5, 256, 256)">
+    <circle cx="256" cy="245" r="175" fill="#0A0E17" stroke="url(#c)" stroke-width="3.5" filter="url(#r)"/>
+    <circle cx="256" cy="245" r="145" fill="none" stroke="rgba(0,255,204,0.25)" stroke-width="1.5" stroke-dasharray="6 10 25 8"/>
+    <ellipse cx="256" cy="245" rx="145" ry="40" fill="rgba(0,255,204,0.06)"/>
+    <line x1="111" y1="245" x2="401" y2="245" stroke="rgba(0,255,204,0.5)" stroke-width="1.5" stroke-dasharray="10 4"/>
+    <g transform="translate(256, 200)">
+      <rect x="-22" y="-30" width="14" height="50" rx="2.5" fill="none" stroke="#00FFCC" stroke-width="2.5"/>
+      <rect x="-8" y="-18" width="8" height="12" rx="2" fill="none" stroke="#00FFCC" stroke-width="2"/>
+      <path d="M 0,-6 Q 14,-6 14,6 L 14,18 Q 14,22 18,22" fill="none" stroke="#00FFCC" stroke-width="3" stroke-linecap="round"/>
+      <line x1="-45" y1="-42" x2="25" y2="36" stroke="#FF0055" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
+    </g>
+    <g transform="translate(256, 290)">
+      <text x="0" y="0" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="bold" fill="url(#g)" text-anchor="middle" dominant-baseline="central">$</text>
+    </g>
+    <g stroke="#00FFCC" stroke-width="2.5" fill="none" stroke-linecap="round">
+      <path d="M 115 195 Q 95 195 95 175 Q 95 155 115 155"/>
+      <polyline points="108,148 115,155 122,148" fill="#00FFCC" stroke="none"/>
+      <path d="M 397 295 Q 417 295 417 315 Q 417 335 397 335"/>
+      <polyline points="404,342 397,335 390,342" fill="#00FFCC" stroke="none"/>
+    </g>
+  </g>
+  <text x="256" y="475" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="url(#c)" text-anchor="middle" letter-spacing="8" filter="url(#r)">PayFlip</text>
+</svg>
