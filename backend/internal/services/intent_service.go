@@ -17,15 +17,6 @@ import (
 
 // ── 意图解析结果 ────────────────────────────────────────────────────────────
 
-// IntentResult 单步意图结果（兼容旧接口）
-type IntentResult struct {
-	Action          string `json:"action"`
-	FromToken       string `json:"fromToken"`
-	ToToken         string `json:"toToken"`
-	Amount          string `json:"amount"`
-	YieldPreference string `json:"yieldPreference,omitempty"`
-}
-
 // Step 一个执行步骤
 type Step struct {
 	Action   string `json:"action"`
@@ -46,9 +37,9 @@ type StepPlan struct {
 
 // IntentService 意图解析 + calldata 编排
 type IntentService struct {
-	apiKey     string
-	baseURL    string
-	txBuilder  *tx.Builder
+	apiKey    string
+	baseURL   string
+	txBuilder *tx.Builder
 }
 
 // NewIntentService 创建意图解析服务
@@ -60,33 +51,7 @@ func NewIntentService(txBuilder *tx.Builder) *IntentService {
 	}
 }
 
-// Parse 解析自然语言 →（单步）
-func (s *IntentService) Parse(input string) (*IntentResult, error) {
-	if s.apiKey == "" {
-		return nil, fmt.Errorf("DEEPSEEK_API_KEY 未设置")
-	}
-	prompt := fmt.Sprintf(`你是一个 DeFi 意图解析器。将用户的自然语言输入解析为 JSON。
-
-可用动作：swap（兑换）, swap_and_stake（兑换并质押）, stake（质押）, unstake（解质押）
-
-示例：
-- "把 100 USDT 换成 MNT" → {"action":"swap","fromToken":"USDT","toToken":"MNT","amount":"100"}
-- "用 200 USDT 换成 MNT 并质押生息" → {"action":"swap_and_stake","fromToken":"USDT","toToken":"MNT","amount":"200"}
-
-现在解析以下输入，只返回 JSON，不要其他文字：
-用户输入: %s`, input)
-	content, err := s.callDeepSeek(prompt)
-	if err != nil {
-		return nil, err
-	}
-	var r IntentResult
-	if err := json.Unmarshal([]byte(content), &r); err != nil {
-		return nil, fmt.Errorf("parse intent json: %w, raw: %s", err, content)
-	}
-	return &r, nil
-}
-
-// BuildPlan 解析自然语言 → 多步计划
+// BuildPlan 解析自然语言 → 多步计划（单步/多步统一入口）
 func (s *IntentService) BuildPlan(input string) (*StepPlan, error) {
 	if s.apiKey == "" {
 		return nil, fmt.Errorf("DEEPSEEK_API_KEY 未设置")
@@ -106,7 +71,7 @@ func (s *IntentService) BuildPlan(input string) (*StepPlan, error) {
 	return &plan, nil
 }
 
-// ── calldata 编排 ─────────────────────────────────────────
+// ── calldata 编排 ────────────────────────────────────────────────────────────
 
 // BuildCalldata 把 steps 转成 targets/values/datas
 func (s *IntentService) BuildCalldata(steps []Step) (targets []common.Address, values []*big.Int, datas [][]byte) {

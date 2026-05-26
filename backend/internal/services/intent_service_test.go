@@ -3,40 +3,34 @@ package services
 import (
 	"os"
 	"testing"
+	"strings"
 
 	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	_ = godotenv.Load("../../.env")
+func init() { _ = godotenv.Load("../../.env") }
+
+func TestBuildPlan_Swap(t *testing.T) {
+	if os.Getenv("DEEPSEEK_API_KEY") == "" { t.Skip("DEEPSEEK_API_KEY not set") }
+	plan, err := NewIntentService(nil).BuildPlan("用 1 USDT 换 MNT")
+	if err != nil { t.Fatalf("BuildPlan: %v", err) }
+	if len(plan.Steps) < 1 { t.Errorf("expected >=1 steps, got %d", len(plan.Steps)) }
+	// Deepseek 可能会自动补 approve，只要包含 swap 就算成功
+	hasSwap := false
+	for _, s := range plan.Steps {
+		if s.Action == "swap" { hasSwap = true; break }
+	}
+	if !hasSwap { t.Errorf("expected at least one swap step") }
 }
 
-func TestParseIntent_BuyMNT(t *testing.T) {
+func TestBuildPlan_SwapAndStake(t *testing.T) {
 	if os.Getenv("DEEPSEEK_API_KEY") == "" { t.Skip("DEEPSEEK_API_KEY not set") }
-	svc := NewIntentService(nil)
-	result, err := svc.Parse("帮我把 100 USDT 换成 MNT")
-	assert.NoError(t, err)
-	assert.Equal(t, "swap", result.Action)
-	assert.Equal(t, "USDT", result.FromToken)
-	assert.Equal(t, "MNT", result.ToToken)
-	assert.Equal(t, "100", result.Amount)
-}
-
-func TestParseIntent_BuyMNTAndStake(t *testing.T) {
-	if os.Getenv("DEEPSEEK_API_KEY") == "" { t.Skip("DEEPSEEK_API_KEY not set") }
-	svc := NewIntentService(nil)
-	result, err := svc.Parse("用 200 USDT 换成 MNT 并质押生息")
-	assert.NoError(t, err)
-	assert.Equal(t, "swap_and_stake", result.Action)
-}
-
-func TestIntentService_BuildPlan(t *testing.T) {
-	if os.Getenv("DEEPSEEK_API_KEY") == "" { t.Skip("DEEPSEEK_API_KEY not set") }
-	svc := NewIntentService(nil)
-	plan, err := svc.BuildPlan("帮我把 100 USDT 换成 MNT 并质押")
-	assert.NoError(t, err)
-	if len(plan.Steps) < 2 {
-		t.Errorf("expected at least 2 steps, got %d", len(plan.Steps))
+	plan, err := NewIntentService(nil).BuildPlan("用 200 USDT 换成 MNT 并质押")
+	if err != nil { t.Fatalf("BuildPlan: %v", err) }
+	if len(plan.Steps) < 2 { t.Errorf("expected >=2 steps, got %d", len(plan.Steps)) }
+	for _, s := range plan.Steps {
+		if !strings.Contains("approve swap stake unstake", s.Action) {
+			t.Errorf("unexpected action: %s", s.Action)
+		}
 	}
 }

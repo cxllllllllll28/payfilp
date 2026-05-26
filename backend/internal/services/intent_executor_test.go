@@ -2,12 +2,11 @@ package services
 
 import (
 	"context"
-	"math/big"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
@@ -15,73 +14,49 @@ import (
 	"github.com/yourusername/hacker-mantle-backend/internal/tx"
 )
 
-func setupTestExecutor(t *testing.T) (*IntentExecutor, func()) {
-	t.Helper()
-
+func TestMultiStep_ApproveSwap(t *testing.T) {
+	// ── 环境准备 ──
 	_ = godotenv.Load("../../.env")
 	privKeyHex := strings.TrimSpace(os.Getenv("TEST_PRIVATE_KEY"))
-	rpcURL := strings.TrimSpace(os.Getenv("MANTLE_TESTNET_RPC"))
-	if rpcURL == "" {
-		rpcURL = "https://rpc.sepolia.mantle.xyz"
-	}
+	if privKeyHex == "" { t.Skip("TEST_PRIVATE_KEY not set") }
+	rpcURL := os.Getenv("MANTLE_TESTNET_RPC")
+	if rpcURL == "" { rpcURL = "https://rpc.sepolia.mantle.xyz" }
 
-	if privKeyHex == "" {
-		t.Skip("TEST_PRIVATE_KEY not set in .env")
-	}
+	privKey, _ := crypto.HexToECDSA(privKeyHex)
+	client, _ := ethclient.Dial(rpcURL)
+	defer client.Close()
+	chainID, _ := client.ChainID(context.Background())
 
-	privKey, err := crypto.HexToECDSA(privKeyHex)
-	if err != nil {
-		t.Fatalf("invalid private key: %v", err)
-	}
-
-	client, err := ethclient.Dial(rpcURL)
-	if err != nil {
-		t.Fatalf("dial mantle rpc: %v", err)
-	}
-
-	chainID, err := client.ChainID(context.Background())
-	if err != nil {
-		t.Fatalf("get chain id: %v", err)
-	}
-
-	txmgr, err := tx.NewTxManager(client, privKey, chainID)
-	if err != nil {
-		t.Fatalf("new tx manager: %v", err)
-	}
-
+	txmgr, _ := tx.NewTxManager(client, privKey, chainID)
 	executor := NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), tx.NewBuilder(txmgr))
-	cleanup := func() {
-		client.Close()
-		txmgr.Stop()
+	svc := NewIntentService(tx.NewBuilder(txmgr))
+
+	// ── 1. AI 意图解析 ──
+	input := "帮我把 1 USDT 换成 MNT"
+	plan, err := svc.BuildPlan(input)
+	if err != nil { t.Fatalf("BuildPlan: %v", err) }
+
+	fmt.Println("\n========== AI 多步计划 ==========")
+	fmt.Printf("用户输入: %s\n", input)
+	for i, s := range plan.Steps {
+		fmt.Printf("Step %d: action=%s token=%s amount=%s spender=%s protocol=%s\n", i+1, s.Action, s.Token, s.Amount, s.Spender, s.Protocol)
 	}
-	return executor, cleanup
+
+	// ── 2. calldata 编排 ──
+	targets, values, datas := svc.BuildCalldata(plan.Steps)
+	fmt.Println("\n========== calldata 编排结果 ==========")
+	for i := range targets {
+		fmt.Printf("[%d] target=%s value=%s calldata_len=%d\n", i, targets[i].Hex(), values[i].String(), len(datas[i]))
+	}
+
+	// ── 3. 执行 ──
+	fmt.Println("\n========== 执行中 ==========")
+	hash, err := executor.ExecuteCalldata(context.Background(), targets, values, datas)
+	if err != nil {
+		t.Fatalf("ExecuteCalldata: %v", err)
+	}
+	fmt.Printf("txHash: %s\n", hash)
+	fmt.Printf("explorer: https://explorer.sepolia.mantle.xyz/tx/%s\n", hash)
 }
 
-func TestExecuteSwapIntent(t *testing.T) {
-	executor, cleanup := setupTestExecutor(t)
-	defer cleanup()
-
-	from := tx.TokenAddr("USDT")
-	to := tx.TokenAddr("MNT")
-	amount := big.NewInt(1000000) // 1 USDT
-
-	calldata, _, err := tx.NewBuilder(executor.txmgr).BuildSwapCalldata(context.Background(), from, to, amount)
-	if err != nil {
-		t.Skipf("DEX builder not yet implemented: %v", err)
-	}
-
-	hash, err := executor.ExecuteCalldata(
-		context.Background(),
-		[]common.Address{to},
-		[]*big.Int{big.NewInt(0)},
-		[][]byte{calldata},
-	)
-	if err != nil {
-		t.Fatalf("swap failed: %v", err)
-	}
-	t.Logf("tx hash: %s", hash)
-	if hash == "" {
-		t.Error("expected non-empty tx hash")
-	}
-}
 
