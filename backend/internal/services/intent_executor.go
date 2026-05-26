@@ -10,7 +10,7 @@ import (
 	"github.com/yourusername/hacker-mantle-backend/internal/tx"
 )
 
-// IntentExecutor 意图执行器 — 调 tx/ 子系统执行链上交易
+// IntentExecutor 意图执行器
 type IntentExecutor struct {
 	txmgr   *tx.TxManager
 	builder *tx.Builder
@@ -18,11 +18,11 @@ type IntentExecutor struct {
 }
 
 // NewIntentExecutor 创建意图执行器
-func NewIntentExecutor(txmgr *tx.TxManager) *IntentExecutor {
+func NewIntentExecutor(txmgr *tx.TxManager, rpcURL string, chainID int64) *IntentExecutor {
 	return &IntentExecutor{
 		txmgr:   txmgr,
 		builder: tx.NewBuilder(txmgr),
-		sender:  tx.NewSender(txmgr),
+		sender:  tx.NewSender(txmgr, rpcURL, chainID),
 	}
 }
 
