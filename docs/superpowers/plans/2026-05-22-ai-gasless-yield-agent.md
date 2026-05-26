@@ -1,20 +1,18 @@
-# AI Gasless 收益代理 — 实施计划
+# PayFlip — 实施计划
 
 > **给执行代理的说明：** 必须使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 来逐任务实施本计划。步骤使用复选框 (`- [ ]`) 语法进行追踪。
 
-**目标：** 在 Mantle 上构建一个基于意图的 AI DeFi 代理，让用户能够使用 USDT 支付 Gas（EIP-7702 + ERC-4337）来交易和赚取收益，提供即时模式和托管模式两种方式。
+**目标：** 在 Mantle 上构建一个 AI DeFi 副驾驶——PayFlip。用户用自然语言描述意图，DeepSeek 解析为 steps，后端动态构建 calldata、一笔交易多步原子执行。后续接入收益监控引擎实现全链 100+ 收益池自动调仓。
 
-**架构：** 单体仓库（Monorepo），包含 Go 后端（独立开发，可参考现有 web3 项目的 eth 交互代码）、React 前端（Vite + TailwindCSS）、Solidity 合约（EIP-7702 委托 + ERC-4337 Paymaster），以及用于托管模式收益监控的链下 Cron 调度器。
+**架构：** Go 后端 + React 前端（Vite + TailwindCSS）单体仓库。AI 意图解析 + 动态 calldata 构建 + 多步原子交易执行 + Cron 收益调度。
 
-**技术栈：** Go 1.23, React 19 + Vite + TailwindCSS + ethers.js v6, Solidity 0.8.23 (Foundry), Mantle 主网
+**技术栈：** Go 1.23, DeepSeek V4 Pro API, React 19 + Vite + TailwindCSS + ethers.js v6, Foundry (Solidity 合约可选), Mantle 主网
 
 > ⚠️ **关键前置信息（来自黑客松官方）：**
 >
 > - **ERC-8004 Agent 身份 NFT 由 Mantle 官方提供**，无需自行部署。申请后获得 Agent ID，在交易中带上即可。
-> - **LLM 选型：DeepSeek V4 Pro**（API Key: `sk-2c8554e3ee8c4f0d9c53310772f4556a`，Base URL: `https://api.deepseek.com/v1`），用于意图解析（任务 4）。
-> - **合约部署与后端配置的解耦**：后端先用 Pimlico 公共 EntryPoint（`0x0000000071727De22E5E9d8BAf0edAc6f37da032`），ERC20Paymaster 在第 1 阶段部署临时版本供后端联调，最终版在第 5 阶段重新部署。
+> - **LLM 选型：DeepSeek V4 Pro**（API Key: `sk-1ccd1f8e4586403da617d8bed2c9aa72`，Base URL: `https://api.deepseek.com/v1`），用于意图解析（任务 4）。
 > - **Demo 优化**：Cron 调度器（30分钟间隔）太慢，Demo 时使用手动触发接口 `/api/yield/rebalance`。
-> - **web3 项目复用**：`e:\studyTest\web3\go_backend\internal\eth\` 下的 `manager.go`（SendTx with gasless path）、`gasless7702/`、`gasless4337/`、`paymaster.go` 已跑通 EIP-7702 + ERC-4337 完整流程，本项目的 `backend/internal/eth/` 直接复用并适配 Mantle。
 
 ---
 
@@ -22,14 +20,6 @@
 
 ```
 mantleVault-hacker/
-├── contracts/                  # Solidity contracts (Foundry)
-│   ├── src/
-│   │   ├── Simple7702Account.sol    # EIP-7702 delegation account
-│   │   └── ERC20Paymaster.sol       # ERC-20 token paymaster
-│   ├── script/
-│   │   └── Deploy.sol               # Deploy script
-│   └── test/
-│       └── Simple7702Account.t.sol
 ├── backend/                    # Go backend
 │   ├── cmd/api/main.go
 │   ├── config/config.go
@@ -39,45 +29,37 @@ mantleVault-hacker/
 │   │   │   ├── intent_handler.go   # POST /api/intent/execute
 │   │   │   ├── yield_handler.go    # GET /api/yield/monitor, POST /api/yield/rebalance
 │   │   │   └── agent_handler.go    # GET /api/agent/status
-│   │   ├── eth/                    # [复用 web3 项目] EIP-7702 + ERC-4337 gasless 基础设施
-│   │   │   ├── manager.go          # SendTx — 自动选择 normal / gasless 路径
-│   │   │   ├── gasless7702/        # EIP-7702 授权签名 (BuildAuthorization)
-│   │   │   ├── gasless4337/        # ERC-4337 UserOp 构建 + 签名 + 发送
-│   │   │   └── paymaster.go        # Pimlico pm_sponsorUserOperation 封装
-│   │   ├── tx/                     # [新增] 交易执行子层 (builder → signer → sender)
+│   │   ├── tx/                     # 交易执行子层 (builder → signer → sender)
 │   │   │   ├── builder.go          # calldata 构造 + DEX 路由查询 + Gas 估算
-│   │   │   ├── signer.go           # EOA 签名交易
-│   │   │   ├── sender.go           # 发送交易 (normal / 7702+4337 gasless)
-│   │   │   └── manager.go          # Nonce 管理 + 重试 + 等待 Confirmation
+│   │   │   ├── sender.go           # 发送交易 (正常路径; Gasless 预留接入点)
+│   │   │   ├── manager.go          # Nonce 管理 + 重试 + 等待 Confirmation
+│   │   │   └── nonce.go
 │   │   ├── services/
 │   │   │   ├── intent_service.go   # NLP intent → steps (DeepSeek API)
-│   │   │   ├── intent_executor.go  # Parse result → call tx/ subsystem
-│   │   │   ├── step_builder.go     # Dynamic calldata routing (Task 6)
-│   │   │   ├── yield_service.go    # Yield monitoring + rebalance
-│   │   │   └── agent_service.go    # Agent status tracking
+│   │   │   ├── intent_executor.go  # 调度 → 调 tx/ 子系统
+│   │   │   ├── yield_service.go    # 收益监控 + 调仓
+│   │   │   └── agent_service.go    # Agent 状态追踪
 │   │   └── scheduler/
-│   │       └── cron.go             # Cron job for managed mode
+│   │       └── cron.go             # 托管模式定时任务
 │   └── go.mod
 ├── frontend/                   # React app
 │   ├── src/
 │   │   ├── App.tsx
 │   │   ├── components/
-│   │   │   ├── IntentInput.tsx     # Natural language input box
-│   │   │   ├── ModeSwitch.tsx      # Instant / Managed mode toggle
-│   │   │   ├── YieldDashboard.tsx  # Yield monitoring panel
-│   │   │   ├── TxReceipt.tsx       # Transaction receipt card
-│   │   │   └── WalletConnect.tsx   # Wallet connection
+│   │   │   ├── IntentInput.tsx     # 自然语言输入框
+│   │   │   ├── ModeSwitch.tsx      # 即时/托管模式切换
+│   │   │   ├── YieldDashboard.tsx  # 收益监控面板
+│   │   │   ├── TxReceipt.tsx       # 交易回执卡片
+│   │   │   └── WalletConnect.tsx   # 钱包连接
 │   │   ├── hooks/
-│   │   │   ├── useIntent.ts        # Intent execution hook
-│   │   │   └── useYield.ts         # Yield data hook
+│   │   │   ├── useIntent.ts
+│   │   │   └── useYield.ts
 │   │   └── lib/
-│   │       └── api.ts              # API client
+│   │       └── api.ts
 │   ├── package.json
 │   └── vite.config.ts
 └── docs/
     └── superpowers/
-        └── specs/
-            └── 2026-05-22-ai-gasless-yield-agent-design.md
 ```
 
 ---
@@ -150,16 +132,13 @@ git add -A && git commit -m "feat: add Mantle chain configuration"
 - [ ] **步骤 1：添加 Mantle 合约地址**
 
 ```go
-// Mantle 入口点 v0.8
-const MantleEntryPointV08 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
-
-// Mantle 专用 Pimlico Bundler
-func PimlicoBundlerURL() string {
-    return fmt.Sprintf("https://api.pimlico.io/v2/5000/rpc?apikey=%s", getEnv("PIMLICO_API_KEY", ""))
-}
+// Mantle 核心合约地址
+const MantleUSDT = "0x..."
+const MantleMETH = "0x..."
+const MantleUSDY = "0x..."
 ```
 
-- [ ] **步骤 2：验证 EntryPoint 已部署**
+- [ ] **步骤 2：验证核心合约已部署**
 
 运行：`cast code 0x0000000071727De22E5E9d8BAf0edAc6f37da032 --rpc-url https://rpc.mantle.xyz`
 预期：返回非空字节码
