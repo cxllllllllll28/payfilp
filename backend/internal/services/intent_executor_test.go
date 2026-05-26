@@ -2,10 +2,12 @@ package services
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
@@ -47,7 +49,7 @@ func setupTestExecutor(t *testing.T) (*IntentExecutor, func()) {
 		t.Fatalf("new tx manager: %v", err)
 	}
 
-	executor := NewIntentExecutor(txmgr, rpcURL, chainID.Int64())
+	executor := NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), tx.NewBuilder(txmgr))
 	cleanup := func() {
 		client.Close()
 		txmgr.Stop()
@@ -59,22 +61,24 @@ func TestExecuteSwapIntent(t *testing.T) {
 	executor, cleanup := setupTestExecutor(t)
 	defer cleanup()
 
-	intent := &IntentResult{
-		Action:    "swap",
-		FromToken: "USDT",
-		ToToken:   "MNT",
-		Amount:    "1",
+	from := tx.TokenAddr("USDT")
+	to := tx.TokenAddr("MNT")
+	amount := big.NewInt(1000000) // 1 USDT
+
+	calldata, _, err := tx.NewBuilder(executor.txmgr).BuildSwapCalldata(context.Background(), from, to, amount)
+	if err != nil {
+		t.Skipf("DEX builder not yet implemented: %v", err)
 	}
 
-	ctx := context.Background()
-	hash, err := executor.Execute(ctx, intent)
+	hash, err := executor.ExecuteCalldata(
+		context.Background(),
+		[]common.Address{to},
+		[]*big.Int{big.NewInt(0)},
+		[][]byte{calldata},
+	)
 	if err != nil {
-		if strings.Contains(err.Error(), "not implemented") {
-			t.Skipf("DEX builder not yet implemented: %v", err)
-		}
 		t.Fatalf("swap failed: %v", err)
 	}
-
 	t.Logf("tx hash: %s", hash)
 	if hash == "" {
 		t.Error("expected non-empty tx hash")

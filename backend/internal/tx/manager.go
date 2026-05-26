@@ -87,6 +87,36 @@ func (m *TxManager) BuildTx(ctx context.Context, to *common.Address, value *big.
 	}), nil
 }
 
+// BuildBatchTx 构建多步交易 — 把 targets/values/datas 打包进一笔 via MultiSend/util contract
+func (m *TxManager) BuildBatchTx(ctx context.Context, targets []common.Address, values []*big.Int, datas [][]byte) (*types.Transaction, error) {
+	// 单步直接复用 BuildTx
+	if len(targets) == 1 {
+		return m.BuildTx(ctx, &targets[0], values[0], datas[0], 0, nil, nil)
+	}
+	// 多步：调用简单批处理合约
+	batchData, err := encodeBatch(targets, values, datas)
+	if err != nil {
+		return nil, fmt.Errorf("encode batch: %w", err)
+	}
+	to := common.HexToAddress("0x0000000000000000000000000000000000000000") // 占位，后续换真正的 MultiSend 地址
+	return m.BuildTx(ctx, &to, big.NewInt(0), batchData, 0, nil, nil)
+}
+
+// encodeBatch 编码批处理 calldata（纯函数）
+func encodeBatch(targets []common.Address, values []*big.Int, datas [][]byte) ([]byte, error) {
+	// 简易逻辑：把多个 calldata 串联起来，用 delegatecall 逐条执行
+	// 正式上线前换 MultiSend 或 Permit2 的 batch 方法
+	var out []byte
+	for i := range targets {
+		// 每步写入 dest + value + length + data
+		out = append(out, common.LeftPadBytes(targets[i].Bytes(), 32)...)
+		out = append(out, common.LeftPadBytes(values[i].Bytes(), 32)...)
+		out = append(out, common.LeftPadBytes(big.NewInt(int64(len(datas[i]))).Bytes(), 32)...)
+		out = append(out, datas[i]...)
+	}
+	return out, nil
+}
+
 // SignTx 签名交易
 func (m *TxManager) SignTx(ctx context.Context, tx *types.Transaction) (*types.Transaction, error) {
 	return types.SignTx(tx, types.LatestSignerForChainID(m.chainID), m.privateKey)
@@ -98,19 +128,16 @@ func (m *TxManager) SendAndWait(ctx context.Context, tx *types.Transaction, time
 	if err != nil {
 		return nil, fmt.Errorf("sign: %w", err)
 	}
-
 	err = m.client.SendTransaction(ctx, signedTx)
 	if err != nil {
 		return nil, fmt.Errorf("send: %w", err)
 	}
-
 	if timeout <= 0 {
 		timeout = 60
 	}
 	deadline := time.Now().Add(time.Duration(timeout) * time.Second)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
-
 	for {
 		receipt, err := m.client.TransactionReceipt(ctx, signedTx.Hash())
 		if err == nil {
