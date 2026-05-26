@@ -310,14 +310,14 @@ func (e *IntentExecutor) Execute(ctx context.Context, intent *IntentResult) (str
 }
 ```
 
-- [ ] **步骤 3：将兑换接入 Gasless 交易**
+- [ ] **步骤 3：连接 tx/ 子系统**
 
-复用现有的 `manager.SendTx` 搭配 gasless 7702+4337 路径。
+调用 `builder.BuildSwapCalldata` → `manager.BuildTx` → `sender.Send` 完成一笔 swap。
 
 - [ ] **步骤 4：提交代码**
 
 ```bash
-git add -A && git commit -m "feat: 意图→calldata 执行器，支持 Gasless 兑换"
+git add -A && git commit -m "feat: intent-to-calldata execution with DEX swap"
 ```
 
 ---
