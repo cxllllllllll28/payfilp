@@ -19,6 +19,26 @@ func TokenAddr(symbol string) common.Address {
 	return m[symbol]
 }
 
+// BuildApproveCalldata 构造 ERC-20 approve(spender, amount) calldata
+func BuildApproveCalldata(spender common.Address, amount *big.Int) []byte {
+	sel := crypto.Keccak256([]byte("approve(address,uint256)"))[:4]
+	data := append(sel, common.LeftPadBytes(spender.Bytes(), 32)...)
+	data = append(data, common.LeftPadBytes(amount.Bytes(), 32)...)
+	return data
+}
+
+// BuildStakeMETHCalldata 构造 mETH.deposit() calldata
+func BuildStakeMETHCalldata() []byte {
+	return crypto.Keccak256([]byte("deposit()"))[:4]
+}
+
+// BuildUnwrapMETHCalldata 构造 mETH.withdraw(uint256) calldata
+func BuildUnwrapMETHCalldata(amount *big.Int) []byte {
+	sel := crypto.Keccak256([]byte("withdraw(uint256)"))[:4]
+	data := append(sel, common.LeftPadBytes(amount.Bytes(), 32)...)
+	return data
+}
+
 // DEX 路由表
 var dexRouters = map[string]common.Address{
 	"MerchantMoe": common.HexToAddress("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"),
