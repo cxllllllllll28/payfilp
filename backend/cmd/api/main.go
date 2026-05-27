@@ -48,7 +48,7 @@ func main() {
 	fmt.Printf("✅ 已连接 Mantle 主网 (ChainID: %d)\n", cfg.ChainID)
 
 	// 3. 初始化 Intent Handler
-	builder := tx.NewBuilder(nil) // 后面接 txmgr
+	builder := tx.NewBuilder(nil) // 仅用于 calldata 编排，不依赖 mgr
 	intentSvc := services.NewIntentService(builder)
 	intentHandler := api.NewIntentHandler(intentSvc)
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -103,7 +104,7 @@ func (s *IntentService) callDeepSeek(prompt string) (string, error) {
 	httpReq, _ := http.NewRequest("POST", s.baseURL+"/chat/completions", bytes.NewReader(jsonBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+s.apiKey)
-	resp, err := (&http.Client{}).Do(httpReq)
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("deepseek request: %w", err)
 	}

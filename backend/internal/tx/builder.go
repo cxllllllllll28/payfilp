@@ -54,12 +54,18 @@ type SwapRoute struct {
 
 // Builder calldata 构建器
 type Builder struct {
-	mgr *TxManager
+	mgr          *TxManager
+	ownerAddress common.Address // 独立存储，不依赖 mgr.Address()
 }
 
 // NewBuilder 创建 calldata 构建器
+// mgr 可以为 nil（仅返回 ownerAddress=zero），主流程调用时传入有效 mgr
 func NewBuilder(mgr *TxManager) *Builder {
-	return &Builder{mgr: mgr}
+	b := &Builder{mgr: mgr}
+	if mgr != nil && mgr.privateKey != nil {
+		b.ownerAddress = crypto.PubkeyToAddress(mgr.privateKey.PublicKey)
+	}
+	return b
 }
 
 // BuildSwapCalldata 构造 Uniswap V2 swapExactTokensForTokens 的 calldata
@@ -83,7 +89,7 @@ func (b *Builder) BuildSwapCalldata(ctx context.Context, fromToken, toToken comm
 		amountIn,
 		big.NewInt(1),                 // amountOutMin: 最少 1 wei（测试用）
 		[]common.Address{fromToken, toToken},
-		b.mgr.Address(),               // 换完的 token 发给自己
+		b.ownerAddress,               // 换完的 token 发给自己
 		big.NewInt(9999999999),        // deadline: 远的将来
 	)
 	if err != nil {

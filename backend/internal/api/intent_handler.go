@@ -49,18 +49,32 @@ func (h *IntentHandler) ExecuteIntent(c *gin.Context) {
 		return
 	}
 
-	hash, err := h.executeOnChain(c.Request.Context(), strings.TrimSpace(req.WalletPK), targets, values, datas)
+	hash, _, err := h.executeOnChain(c.Request.Context(), strings.TrimSpace(req.WalletPK), targets, values, datas)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "execute: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"txHash": hash, "steps": plan.Steps})
+
+	// 构建 explorer URL
+	chainID := os.Getenv("MANTLE_CHAIN_ID")
+	explorerBase := "https://explorer.sepolia.mantle.xyz"
+	if chainID == "5000" {
+		explorerBase = "https://mantlescan.io"
+	}
+	explorerURL := explorerBase + "/tx/" + hash
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":     true,
+		"txHash":      hash,
+		"explorerUrl": explorerURL,
+		"steps":       fmt.Sprintf("%+v", plan.Steps),
+	})
 }
 
-func (h *IntentHandler) executeOnChain(ctx context.Context, pkHex string, targets []common.Address, values []*big.Int, datas [][]byte) (string, error) {
+func (h *IntentHandler) executeOnChain(ctx context.Context, pkHex string, targets []common.Address, values []*big.Int, datas [][]byte) (string, string, error) {
 	privKey, err := crypto.HexToECDSA(pkHex)
 	if err != nil {
-		return "", fmt.Errorf("invalid key: %w", err)
+		return "", "", fmt.Errorf("invalid key: %w", err)
 	}
 	rpcURL := os.Getenv("MANTLE_TESTNET_RPC")
 	if rpcURL == "" { rpcURL = "https://rpc.sepolia.mantle.xyz" }
@@ -69,6 +83,10 @@ func (h *IntentHandler) executeOnChain(ctx context.Context, pkHex string, target
 	chainID, _ := client.ChainID(ctx)
 	txmgr, _ := tx.NewTxManager(client, privKey, chainID)
 	executor := services.NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), tx.NewBuilder(txmgr))
-	return executor.ExecuteCalldata(ctx, targets, values, datas)
+	hash, err := executor.ExecuteCalldata(ctx, targets, values, datas)
+	if err != nil {
+		return "", "", err
+	}
+	return hash, "", nil
 }
 
