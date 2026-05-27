@@ -45,14 +45,17 @@ func SetupRouter(intentHandler *IntentHandler) *gin.Engine {
 	intentGroup := router.Group("/api/intent")
 	intentGroup.POST("/execute", intentHandler.ExecuteIntent)
 
-	// === 收益管理接口（任务 11）===
-	_ = router.Group("/api/yield")
-	// GET  /api/yield/current   — 获取当前收益数据
-	// POST /api/yield/rebalance — 手动触发调仓
+	return router
+}
 
-	// === Agent 状态接口 ===
-	_ = router.Group("/api/agent")
-	// GET /api/agent/status — 查询 Agent 状态
+// SetupRouterWithYield 带收益路由的全量初始化
+func SetupRouterWithYield(intentHandler *IntentHandler, yieldHandler *YieldHandler) *gin.Engine {
+	router := SetupRouter(intentHandler)
+
+	// === 收益管理接口（任务 11）===
+	yieldGroup := router.Group("/api/yield")
+	yieldGroup.GET("/current", yieldHandler.GetCurrentYields)
+	yieldGroup.POST("/rebalance", yieldHandler.TriggerRebalance)
 
 	return router
 }
