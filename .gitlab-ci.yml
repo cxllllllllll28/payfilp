@@ -1,0 +1,55 @@
+image: golang:1.23
+
+stages:
+  - backend-build
+  - frontend-build
+  - test
+
+# ── 后端编译 ────────────────────────────────────────────────────────────────
+
+backend-build:
+  stage: backend-build
+  image: golang:1.23
+  before_script:
+    - cd backend
+    - go mod download
+  script:
+    - cd backend
+    - go build -o api ./cmd/api/
+  artifacts:
+    paths:
+      - backend/api
+    expire_in: 1 hour
+  cache:
+    paths:
+      - backend/go.sum
+
+# ── 前端构建 ────────────────────────────────────────────────────────────────
+
+frontend-build:
+  stage: frontend-build
+  image: node:20
+  before_script:
+    - cd frontend && npm ci
+  script:
+    - cd frontend && npm run build
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 hour
+
+# ── 单元测试 ────────────────────────────────────────────────────────────────
+
+backend-test:
+  stage: test
+  image: golang:1.23
+  before_script:
+    - cd backend && go mod download
+  script:
+    - cd backend
+    - go test ./config/ -v -timeout 30s
+    - go test ./internal/services/ -v -timeout 120s -run "TestBestRecommendation"
+  artifacts:
+    when: always
+    reports:
+      junit: backend/report.xml
