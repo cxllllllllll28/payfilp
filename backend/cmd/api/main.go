@@ -30,6 +30,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/yourusername/hacker-mantle-backend/config"
 	"github.com/yourusername/hacker-mantle-backend/internal/api"
+	"github.com/yourusername/hacker-mantle-backend/internal/services"
+	"github.com/yourusername/hacker-mantle-backend/internal/tx"
 )
 
 func main() {
@@ -45,8 +47,13 @@ func main() {
 
 	fmt.Printf("✅ 已连接 Mantle 主网 (ChainID: %d)\n", cfg.ChainID)
 
-	// 3. 初始化路由
-	router := api.SetupRouter()
+	// 3. 初始化 Intent Handler
+	builder := tx.NewBuilder(nil) // 后面接 txmgr
+	intentSvc := services.NewIntentService(builder)
+	intentHandler := api.NewIntentHandler(intentSvc)
+
+	// 4. 初始化路由
+	router := api.SetupRouter(intentHandler)
 
 	// 4. 启动 HTTP 服务（支持优雅关闭）
 	srv := &http.Server{

@@ -20,8 +20,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// SetupRouter 初始化所有路由（在 main.go 中调用）
-func SetupRouter() *gin.Engine {
+// SetupRouter 初始化所有路由
+func SetupRouter(intentHandler *IntentHandler) *gin.Engine {
 	router := gin.Default()
 
 	// CORS 中间件
@@ -42,8 +42,8 @@ func SetupRouter() *gin.Engine {
 	})
 
 	// === 意图执行接口（任务 7）===
-	_ = router.Group("/api/intent")
-	// POST /api/intent/execute — 执行自然语言意图
+	intentGroup := router.Group("/api/intent")
+	intentGroup.POST("/execute", intentHandler.ExecuteIntent)
 
 	// === 收益管理接口（任务 11）===
 	_ = router.Group("/api/yield")
