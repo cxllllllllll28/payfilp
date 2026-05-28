@@ -43,16 +43,15 @@ export function YieldDashboard({ walletPk }: YieldDashboardProps) {
       });
       if (result.success) {
         setRebalanceResult(
-          `✅ 调仓成功！交易哈希: ${result.txHash?.slice(0, 10)}... ` +
-            `查看: ${result.explorerUrl}`,
+          `调仓成功！交易哈希: ${result.txHash?.slice(0, 10)}... 查看: ${result.explorerUrl}`,
         );
       } else {
         setRebalanceResult(
-          `❌ 调仓失败: ${result.error || result.recommendation}`,
+          `调仓失败: ${result.error || result.recommendation}`,
         );
       }
     } catch (err) {
-      setRebalanceResult(`❌ 请求失败: ${(err as Error).message}`);
+      setRebalanceResult(`请求失败: ${(err as Error).message}`);
     } finally {
       setRebalancing(false);
     }
@@ -69,40 +68,104 @@ export function YieldDashboard({ walletPk }: YieldDashboardProps) {
 
   return (
     <div className="space-y-4">
+      {/* 头部 */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-800">
-          📊 Mantle 收益池 Top 10
-        </h3>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center border border-brand-500/20">
+            <svg
+              className="w-4 h-4 text-brand-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-surface-100">
+              Mantle 收益池
+            </h3>
+            <p className="text-xs text-surface-400">Top 10 高收益池实时排行</p>
+          </div>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={loadYields}
             disabled={loading}
-            className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium bg-surface-800/60 text-surface-300 rounded-lg hover:bg-surface-700/60 hover:text-surface-100 border border-white/5 disabled:opacity-40 transition-all flex items-center gap-1.5"
           >
-            {loading ? "刷新中..." : "🔄 刷新"}
+            <svg
+              className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            刷新
           </button>
           <button
             onClick={handleRebalance}
             disabled={rebalancing || !walletPk}
-            className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            className="group relative px-3 py-1.5 text-xs font-semibold text-white rounded-lg overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
-            {rebalancing ? "调仓中..." : "⚡ 自动调仓"}
+            <span className="absolute inset-0 bg-gradient-to-r from-brand-600 to-mantle-600 rounded-lg" />
+            <span className="relative z-10 flex items-center gap-1.5">
+              <svg
+                className={`w-3.5 h-3.5 ${rebalancing ? "animate-spin" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              {rebalancing ? "调仓中..." : "自动调仓"}
+            </span>
           </button>
         </div>
       </div>
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-
-      {rebalanceResult && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
-          {rebalanceResult}
+      {/* 错误 */}
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-error/10 border border-error/20 text-error text-sm animate-fade-in-up">
+          <svg
+            className="w-4 h-4 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span>{error}</span>
         </div>
       )}
 
+      {/* 调仓结果 */}
+      {rebalanceResult && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-success/8 border border-success/20 text-success text-sm animate-fade-in-up">
+          <span>{rebalanceResult}</span>
+        </div>
+      )}
+
+      {/* 表格 / 加载 / 空状态 */}
       {loading ? (
-        <div className="flex justify-center py-8">
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
           <svg
-            className="animate-spin h-8 w-8 text-indigo-500"
+            className="animate-spin h-8 w-8 text-brand-400"
             viewBox="0 0 24 24"
           >
             <circle
@@ -120,42 +183,81 @@ export function YieldDashboard({ walletPk }: YieldDashboardProps) {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
+          <span className="text-xs text-surface-400 animate-shimmer px-6 py-1 rounded">
+            正在获取收益数据...
+          </span>
         </div>
       ) : topPools.length === 0 ? (
-        <p className="text-gray-400 text-center py-4">暂无收益数据</p>
+        <div className="text-center py-10">
+          <svg
+            className="w-12 h-12 mx-auto text-surface-600 mb-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+          >
+            <line x1="12" y1="1" x2="12" y2="23" />
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+          </svg>
+          <p className="text-surface-500 text-sm">暂无收益数据</p>
+          <p className="text-surface-600 text-xs mt-1">请稍后刷新重试</p>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
+        <div className="overflow-x-auto rounded-xl border border-white/5">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-gray-600">
-                <th className="text-left px-4 py-3 font-medium">#</th>
-                <th className="text-left px-4 py-3 font-medium">协议</th>
-                <th className="text-left px-4 py-3 font-medium">代币</th>
-                <th className="text-right px-4 py-3 font-medium">APY</th>
-                <th className="text-right px-4 py-3 font-medium">TVL</th>
+              <tr className="bg-surface-800/40 text-surface-400">
+                <th className="text-left px-4 py-3 font-medium text-xs">#</th>
+                <th className="text-left px-4 py-3 font-medium text-xs">
+                  协议
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-xs">
+                  代币
+                </th>
+                <th className="text-right px-4 py-3 font-medium text-xs">
+                  APY
+                </th>
+                <th className="text-right px-4 py-3 font-medium text-xs">
+                  TVL
+                </th>
               </tr>
             </thead>
             <tbody>
               {topPools.map((pool, i) => (
                 <tr
                   key={pool.pool}
-                  className="border-t border-gray-100 hover:bg-gray-50 transition-colors"
+                  className="border-t border-white/[3%] hover:bg-white/[2%] transition-colors"
                 >
-                  <td className="px-4 py-3 text-gray-400">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium">{pool.project}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-mono">
+                  <td className="px-4 py-3.5 text-surface-500 text-xs font-mono">
+                    {i + 1}
+                  </td>
+                  <td className="px-4 py-3.5 font-medium text-surface-200">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-brand-500/20 to-mantle-500/20 flex items-center justify-center text-[8px] text-brand-400 font-bold">
+                        {pool.project.charAt(0).toUpperCase()}
+                      </div>
+                      {pool.project}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className="px-2 py-0.5 bg-brand-500/10 text-brand-300 rounded text-[11px] font-mono font-medium border border-brand-500/15">
                       {pool.symbol}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3.5 text-right">
                     <span
-                      className={`font-semibold ${pool.apy >= 3 ? "text-emerald-600" : pool.apy >= 1 ? "text-amber-600" : "text-gray-500"}`}
+                      className={`font-semibold text-sm ${
+                        pool.apy >= 3
+                          ? "text-success"
+                          : pool.apy >= 1
+                            ? "text-warning"
+                            : "text-surface-400"
+                      }`}
                     >
                       {pool.apy.toFixed(2)}%
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-500">
+                  <td className="px-4 py-3.5 text-right text-surface-400 text-xs font-mono">
                     {formatTVL(pool.tvlUsd)}
                   </td>
                 </tr>

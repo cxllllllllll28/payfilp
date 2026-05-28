@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -57,10 +56,14 @@ func (s *IntentService) BuildPlan(input string) (*StepPlan, error) {
 	if s.apiKey == "" {
 		return nil, fmt.Errorf("DEEPSEEK_API_KEY 未设置")
 	}
-	prompt := fmt.Sprintf(`你是 DeFi 意图解析器。将用户输入转为 JSON 步骤数组。可用 action: approve, swap, stake, unstake。
+	prompt := fmt.Sprintf(`你是 DeFi 意图解析器。将用户输入转为 JSON 步骤数组。
+
+可用 action: approve, swap, stake, unstake。
+金额单位: 用户输入的是人类可读单位（如 1 MNT、100 USDT），你直接输出即可。
+连续步骤: 如果上一步是 swap，下一步的 amount 用 "all"（表示用上一步得到的全部）。除非用户明确指定新金额。
 
 用户: %s
-只返回 JSON，格式: {"steps":[{"action":"approve","token":"USDT","spender":"0x...","amount":"100"},...]}`, input)
+只返回 JSON，格式: {"steps":[{"action":"swap","from":"MNT","to":"USDT","amount":"1"}]}`, input)
 	content, err := s.callDeepSeek(prompt)
 	if err != nil {
 		return nil, err
@@ -104,7 +107,7 @@ func (s *IntentService) callDeepSeek(prompt string) (string, error) {
 	httpReq, _ := http.NewRequest("POST", s.baseURL+"/chat/completions", bytes.NewReader(jsonBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+s.apiKey)
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(httpReq)
+	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("deepseek request: %w", err)
 	}

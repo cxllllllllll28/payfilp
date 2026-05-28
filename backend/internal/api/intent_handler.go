@@ -44,8 +44,21 @@ func (h *IntentHandler) ExecuteIntent(c *gin.Context) {
 
 	targets, values, datas := h.svc.BuildCalldata(plan.Steps)
 
+	// 无私钥 → 返回交易参数让前端 MetaMask 签名
 	if req.WalletPK == "" {
-		c.JSON(http.StatusOK, gin.H{"steps": plan.Steps, "targets": len(targets)})
+		var txParams []map[string]interface{}
+		for i := range targets {
+			txParams = append(txParams, map[string]interface{}{
+				"to":    targets[i].Hex(),
+				"value": values[i].String(),
+				"data":  "0x" + common.Bytes2Hex(datas[i]),
+			})
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"steps":    plan.Steps,
+			"txParams": txParams,
+			"preview":  true,
+		})
 		return
 	}
 

@@ -1,13 +1,192 @@
 @import "tailwindcss";
 
+/* ── 品牌调色板 ── */
+@theme {
+  --color-brand-50: #f5f0ff;
+  --color-brand-100: #ede0ff;
+  --color-brand-200: #dcc2ff;
+  --color-brand-300: #c294ff;
+  --color-brand-400: #a85eff;
+  --color-brand-500: #aa3bff;
+  --color-brand-600: #863bff;
+  --color-brand-700: #6e1fd9;
+  --color-brand-800: #5c1ab3;
+  --color-brand-900: #4d1699;
+
+  --color-surface-50: #f8faff;
+  --color-surface-100: #f1f5f9;
+  --color-surface-200: #e2e8f0;
+  --color-surface-300: #cbd5e1;
+  --color-surface-400: #94a3b8;
+  --color-surface-500: #64748b;
+  --color-surface-600: #475569;
+  --color-surface-700: #334155;
+  --color-surface-800: #1e293b;
+  --color-surface-850: #172033;
+  --color-surface-900: #0f172a;
+  --color-surface-950: #0a0f1d;
+
+  --color-mantle-50: #f0f5ff;
+  --color-mantle-100: #e0eaff;
+  --color-mantle-200: #b8d4ff;
+  --color-mantle-300: #7cb4ff;
+  --color-mantle-400: #47bfff;
+  --color-mantle-500: #1a9eff;
+  --color-mantle-600: #0080ff;
+  --color-mantle-700: #0066d6;
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+}
+
+/* ── 滚动条 ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-surface-700) transparent;
+}
+
+/* ── 全局重置 ── */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   font-family:
+    "Inter",
     system-ui,
     -apple-system,
     "Segoe UI",
     Roboto,
     sans-serif;
-  background: #f8fafc;
-  color: #1e293b;
+  background: linear-gradient(
+    160deg,
+    #0a0f1d 0%,
+    #0f0625 40%,
+    #120831 70%,
+    #0f172a 100%
+  );
+  background-attachment: fixed;
+  color: #f1f5f9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+::selection {
+  background: var(--color-brand-500);
+  color: #fff;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
+/* ── 粒子背景辅助 ── */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(170, 59, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(170, 59, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── 毛玻璃卡片 ── */
+.glass-card {
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(170, 59, 255, 0.25);
+  box-shadow: 0 8px 32px rgba(170, 59, 255, 0.15);
+}
+
+/* ── 渐变边框容器 ── */
+.gradient-border {
+  position: relative;
+  border-radius: 12px;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    var(--color-brand-500),
+    var(--color-mantle-400),
+    var(--color-brand-300)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── 输入框聚焦光晕 ── */
+.input-glow:focus {
+  box-shadow:
+    0 0 0 2px rgba(170, 59, 255, 0.3),
+    0 0 20px rgba(170, 59, 255, 0.1) !important;
+}
+
+/* ── 动画关键帧 ── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(170, 59, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.typing-cursor::after {
+  content: "|";
+  animation: blink 1s step-end infinite;
+  color: var(--color-brand-400);
 }

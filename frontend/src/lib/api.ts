@@ -47,7 +47,13 @@ export async function executeIntent(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
-  return res.json();
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`后端错误(${res.status}): ${text || "后端未响应，请确认后端已启动"}`);
+  }
+  const text = await res.text();
+  if (!text) throw new Error("后端返回空响应，请确认后端已启动");
+  return JSON.parse(text);
 }
 
 export async function fetchCurrentYields(): Promise<YieldResponse> {
@@ -59,6 +65,27 @@ export async function triggerRebalance(
   req: RebalanceRequest,
 ): Promise<RebalanceResponse> {
   const res = await fetch(`${API_BASE}/yield/rebalance`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  return res.json();
+}
+
+export interface ManagedRegisterRequest {
+  privateKey: string;
+}
+
+export interface ManagedRegisterResponse {
+  success: boolean;
+  address?: string;
+  error?: string;
+}
+
+export async function registerManaged(
+  req: ManagedRegisterRequest,
+): Promise<ManagedRegisterResponse> {
+  const res = await fetch(`${API_BASE}/managed/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
