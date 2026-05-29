@@ -1,4 +1,4 @@
-# PayFlip — AI Gasless Yield Agent on Mantle
+# PayFlip — AI-Powered DeFi Yield Agent on Mantle
 
 ---
 
@@ -19,15 +19,14 @@
 
 ## Project Overview
 
-**PayFlip** is an **AI-powered, gasless DeFi yield optimization agent** built on the **Mantle blockchain**. It transforms complex DeFi operations into simple natural language commands, automates yield farming strategies, and eliminates the need for users to hold native gas tokens (MNT).
+**PayFlip** is an **AI-powered DeFi yield optimization agent** built on the **Mantle blockchain**. It transforms complex DeFi operations into simple natural language commands and automates yield farming strategies.
 
 ```mermaid
 flowchart LR
     A[🧑 User] -->|"Stake 1 MNT to highest APY pool"| B[🤖 PayFlip AI]
-    B --> C[⚡ ERC-4337 Gasless Tx]
-    C --> D[🏦 Aave V3]
-    C --> E[🔷 mETH]
-    C --> F[💵 Ondo USDY]
+    B --> D[🏦 Aave V3]
+    B --> E[🔷 mETH]
+    B --> F[💵 Ondo USDY]
     B --> G[🔄 Auto Rebalance]
 ```
 
@@ -40,12 +39,6 @@ flowchart LR
 Say _"Stake 1 MNT to the highest APY pool"_ — the AI parses intent, builds multi-step calldata (approve → swap → stake), and executes automatically.
 
 Powered by **DeepSeek API** with chain-of-thought reasoning for complex multi-protocol workflows.
-
-### ⚡ Gasless Execution
-
-- **ERC-4337 Account Abstraction** with Pimlico Bundler — users don't need MNT for gas.
-- **ERC20 Paymaster** allows paying gas fees in **USDT** instead of native MNT.
-- Dramatically lowers the barrier for new DeFi users.
 
 ### 🔄 Smart Auto-Rebalancing
 
@@ -83,15 +76,7 @@ Powered by **DeepSeek API** with chain-of-thought reasoning for complex multi-pr
 
 ---
 
-### ❌ Problem 2: Gas Token Barrier
-
-> **Users must hold MNT** (the native gas token) before they can do anything on Mantle. For first-time users, this means: buy MNT on CEX → withdraw → swap to tokens → finally use DeFi.
-
-✅ **PayFlip** uses **ERC-4337 + ERC20 Paymaster** so users can pay gas in **USDT**. No MNT required. Zero friction onboarding.
-
----
-
-### ❌ Problem 3: Yield Fragmentation
+### ❌ Problem 2: Yield Fragmentation
 
 > **DeFi yields** vary wildly across protocols and change constantly. Users must constantly monitor multiple positions and manually rebalance to chase the best returns — a full-time job.
 
@@ -99,7 +84,7 @@ Powered by **DeepSeek API** with chain-of-thought reasoning for complex multi-pr
 
 ---
 
-### ❌ Problem 4: No Unified Interface
+### ❌ Problem 3: No Unified Interface
 
 > Each protocol has its own UI, workflow, and gas requirements. Managing positions across Aave, mETH, and Ondo means navigating 3+ different apps.
 
@@ -111,13 +96,13 @@ Powered by **DeepSeek API** with chain-of-thought reasoning for complex multi-pr
 
 ### Backend
 
-| Component           | Technology                                |
-| ------------------- | ----------------------------------------- |
-| Language            | Go (1.22+)                                |
-| Framework           | Gin (HTTP), go-ethereum (Ethereum client) |
-| Account Abstraction | ERC-4337 EntryPoint v0.8, Pimlico Bundler |
-| AI / NLP            | DeepSeek API                              |
-| Scheduler           | Custom goroutine-based daemon             |
+| Component  | Technology                                |
+| ---------- | ----------------------------------------- |
+| Language   | Go (1.22+)                                |
+| Framework  | Gin (HTTP), go-ethereum (Ethereum client) |
+| Blockchain | Mantle (go-ethereum)                      |
+| AI / NLP   | DeepSeek API                              |
+| Scheduler  | Custom goroutine-based daemon             |
 
 ### Frontend
 
@@ -199,20 +184,8 @@ sequenceDiagram
     B->>AI: Parse natural language
     AI-->>B: { steps: [approve, swap, stake], mode: "managed" }
     B->>B: Build multi-step calldata
-    alt Mode: single
-        B->>BC: Execute via EOA or 4337
-        BC-->>B: txHash
-    else Mode: managed
-        B->>BC: Execute initial deposit
-        BC-->>B: txHash
-        B->>B: Register wallet in scheduler
-        loop Every 30min
-            B->>BC: Check current yields
-            alt APY improved >20%
-                B->>BC: Auto-rebalance
-            end
-        end
-    end
+    B->>BC: Sign & send via EOA
+    BC-->>B: txHash
     B-->>F: { txHash, explorerUrl, managed }
     F->>F: Update YieldDashboard
 ```
@@ -280,7 +253,6 @@ forge test
 | `MANTLE_RPC_URL`   | ✅       | `https://rpc.mantle.xyz` | Mantle RPC endpoint                      |
 | `MANTLE_CHAIN_ID`  | ✅       | `5000`                   | 5000=mainnet, 5001=testnet, 5003=Sepolia |
 | `DEEPSEEK_API_KEY` | ✅       | —                        | DeepSeek API key for intent parsing      |
-| `PIMLICO_API_KEY`  | ❌       | —                        | Pimlico bundler API key (for ERC-4337)   |
 | `DB_DSN`           | ❌       | PostgreSQL DSN           | Optional database for logging            |
 | `API_PORT`         | ❌       | `8001`                   | Backend HTTP server port                 |
 
@@ -454,13 +426,10 @@ mantleVault-hacker/
 
 - [x] ✅ Natural language intent parsing (DeepSeek)
 - [x] ✅ Multi-step calldata generation (approve → swap → stake)
-- [x] ✅ ERC-4337 gasless transaction support
-- [x] ✅ ERC20 Paymaster (USDT gas payment)
 - [x] ✅ Protocol registry (mETH, Aave V3, Ondo USDY)
 - [x] ✅ DefiLlama yield data integration
 - [x] ✅ Automatic yield rebalancing scheduler
 - [x] ✅ Dual execution modes (single + managed)
-- [ ] 🔲 **7702 Account** — Simple7702Account contract
 - [ ] 🔲 WebSocket real-time yield updates
 - [ ] 🔲 Telegram / Discord bot notifications
 - [ ] 🔲 More protocol adapters (LayerBank, Agni, etc.)
@@ -474,7 +443,7 @@ mantleVault-hacker/
 
 ---
 
-# PayFlip — 基于 Mantle 的 AI 无 Gas DeFi 收益优化代理
+# PayFlip — 基于 Mantle 的 AI DeFi 收益代理
 
 ---
 
@@ -495,15 +464,14 @@ mantleVault-hacker/
 
 ## 项目简介
 
-**PayFlip** 是一个基于 **Mantle 区块链** 的 **AI 驱动的无 Gas DeFi 收益优化代理**。它将复杂的 DeFi 操作转化为简单的自然语言指令，自动化收益耕作策略，并让用户无需持有原生 Gas 代币（MNT）。
+**PayFlip** 是一个基于 **Mantle 区块链** 的 **AI 驱动的 DeFi 收益优化代理**。它将复杂的 DeFi 操作转化为简单的自然语言指令，自动化收益耕作策略。
 
 ```mermaid
 flowchart LR
     A[🧑 用户] -->|"把 1 MNT 存到最高 APY 池"| B[🤖 PayFlip AI]
-    B --> C[⚡ ERC-4337 无 Gas 交易]
-    C --> D[🏦 Aave V3]
-    C --> E[🔷 mETH]
-    C --> F[💵 Ondo USDY]
+    B --> D[🏦 Aave V3]
+    B --> E[🔷 mETH]
+    B --> F[💵 Ondo USDY]
     B --> G[🔄 自动调仓]
 ```
 
@@ -516,12 +484,6 @@ flowchart LR
 说 _"帮我把 1 MNT 质押到最高 APY 池"_ — AI 解析意图，构建多步 calldata（授权 → 兑换 → 质押），自动执行。
 
 由 **DeepSeek API** 驱动，支持链式推理，处理复杂的跨协议多步操作。
-
-### ⚡ 无 Gas 执行
-
-- **ERC-4337 账户抽象** + Pimlico Bundler — 用户无需持有 MNT 支付 Gas。
-- **ERC20 Paymaster** 允许用 **USDT** 支付 Gas 费，而非原生 MNT。
-- 大幅降低 DeFi 新用户的准入门槛。
 
 ### 🔄 智能自动调仓
 
@@ -559,15 +521,7 @@ flowchart LR
 
 ---
 
-### ❌ 问题 2：Gas 代币门槛
-
-> **用户必须先持有 MNT**（原生 Gas 代币）才能在 Mantle 上操作。首次使用意味着：中心化交易所购买 MNT → 提现 → 兑换代币 → 最后才能用 DeFi。
-
-✅ **PayFlip** 使用 **ERC-4337 + ERC20 Paymaster**，用户用 **USDT** 支付 Gas。无需 MNT。零摩擦上手。
-
----
-
-### ❌ 问题 3：收益率碎片化
+### ❌ 问题 2：收益率碎片化
 
 > **DeFi 收益率**在不同协议间差异巨大且持续变化。用户必须持续监控多个仓位并手动调仓以追求最佳收益 — 这本身就是一份全职工作。
 
@@ -575,7 +529,7 @@ flowchart LR
 
 ---
 
-### ❌ 问题 4：缺乏统一界面
+### ❌ 问题 3：缺乏统一界面
 
 > 每个协议都有自己的界面、工作流和 Gas 要求。在 Aave、mETH 和 Ondo 之间管理仓位意味着需要操作 3 个以上不同的应用。
 
@@ -587,13 +541,13 @@ flowchart LR
 
 ### 后端
 
-| 组件     | 技术                                      |
-| -------- | ----------------------------------------- |
-| 语言     | Go (1.22+)                                |
-| 框架     | Gin (HTTP), go-ethereum (以太坊客户端)    |
-| 账户抽象 | ERC-4337 EntryPoint v0.8, Pimlico Bundler |
-| AI / NLP | DeepSeek API                              |
-| 调度器   | 基于 goroutine 的自定义守护进程           |
+| 组件     | 技术                                   |
+| -------- | -------------------------------------- |
+| 语言     | Go (1.22+)                             |
+| 框架     | Gin (HTTP), go-ethereum (以太坊客户端) |
+| 区块链   | Mantle (go-ethereum)                   |
+| AI / NLP | DeepSeek API                           |
+| 调度器   | 基于 goroutine 的自定义守护进程        |
 
 ### 前端
 
@@ -677,20 +631,8 @@ sequenceDiagram
     B->>AI: 解析自然语言
     AI-->>B: { steps: [approve, swap, stake], mode: "managed" }
     B->>B: 构建多步 calldata
-    alt 单次模式
-        B->>BC: 通过 EOA 或 4337 执行
-        BC-->>B: txHash
-    else 托管模式
-        B->>BC: 执行初始存款
-        BC-->>B: txHash
-        B->>B: 注册钱包到调度器
-        loop 每 30 分钟
-            B->>BC: 检查当前收益率
-            alt APY 提升 >20%
-                B->>BC: 自动调仓
-            end
-        end
-    end
+    B->>BC: 通过 EOA 签名发送
+    BC-->>B: txHash
     B-->>F: { txHash, explorerUrl, managed }
     F->>F: 更新收益面板
 ```
@@ -753,14 +695,13 @@ forge test
 
 ### 环境变量 (`backend/.env`)
 
-| 变量               | 必填 | 默认值                   | 说明                                      |
-| ------------------ | ---- | ------------------------ | ----------------------------------------- |
-| `MANTLE_RPC_URL`   | ✅   | `https://rpc.mantle.xyz` | Mantle RPC 地址                           |
-| `MANTLE_CHAIN_ID`  | ✅   | `5000`                   | 5000=主网, 5001=测试网, 5003=Sepolia      |
-| `DEEPSEEK_API_KEY` | ✅   | —                        | DeepSeek API 密钥，用于意图解析           |
-| `PIMLICO_API_KEY`  | ❌   | —                        | Pimlico bundler API 密钥（用于 ERC-4337） |
-| `DB_DSN`           | ❌   | PostgreSQL DSN           | 可选的数据库，用于日志记录                |
-| `API_PORT`         | ❌   | `8001`                   | 后端 HTTP 服务端口                        |
+| 变量               | 必填 | 默认值                   | 说明                                 |
+| ------------------ | ---- | ------------------------ | ------------------------------------ |
+| `MANTLE_RPC_URL`   | ✅   | `https://rpc.mantle.xyz` | Mantle RPC 地址                      |
+| `MANTLE_CHAIN_ID`  | ✅   | `5000`                   | 5000=主网, 5001=测试网, 5003=Sepolia |
+| `DEEPSEEK_API_KEY` | ✅   | —                        | DeepSeek API 密钥，用于意图解析      |
+| `DB_DSN`           | ❌   | PostgreSQL DSN           | 可选的数据库，用于日志记录           |
+| `API_PORT`         | ❌   | `8001`                   | 后端 HTTP 服务端口                   |
 
 ### 协议配置 (`backend/config/protocols.json`)
 
@@ -932,13 +873,10 @@ mantleVault-hacker/
 
 - [x] ✅ 自然语言意图解析（DeepSeek）
 - [x] ✅ 多步 Calldata 生成（授权 → 兑换 → 质押）
-- [x] ✅ ERC-4337 无 Gas 交易支持
-- [x] ✅ ERC20 Paymaster（USDT 支付 Gas）
 - [x] ✅ 协议注册表（mETH, Aave V3, Ondo USDY）
 - [x] ✅ DefiLlama 收益数据集成
 - [x] ✅ 自动收益调仓调度器
 - [x] ✅ 双执行模式（单次 + 托管）
-- [ ] 🔲 **7702 账户** — Simple7702Account 合约
 - [ ] 🔲 WebSocket 实时收益更新
 - [ ] 🔲 Telegram / Discord 机器人通知
 - [ ] 🔲 更多协议适配器（LayerBank, Agni 等）
