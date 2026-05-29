@@ -35,7 +35,7 @@ func TestMultiStep_ApproveSwap(t *testing.T) {
 	svc := NewIntentService(builder, registry)
 
 	// ── 1. AI 意图解析 ──
-	input := "帮我�?1 USDT 换成 MNT"
+	input := "帮我用 1 USDT 换成 MNT"
 	plan, err := svc.BuildPlan(input)
 	if err != nil { t.Fatalf("BuildPlan: %v", err) }
 
@@ -53,7 +53,7 @@ func TestMultiStep_ApproveSwap(t *testing.T) {
 	}
 
 	// ── 3. 执行 ──
-	fmt.Println("\n========== 执行�?==========")
+	fmt.Println("\n========== 执行结果 ==========")
 	hash, err := executor.ExecuteCalldata(context.Background(), targets, values, datas)
 	if err != nil {
 		t.Fatalf("ExecuteCalldata: %v", err)

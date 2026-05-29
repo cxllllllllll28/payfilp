@@ -219,7 +219,7 @@ func (s *IntentService) packStake(targets []common.Address, datas [][]byte, step
 	}
 
 	amount := amountToBig(step.Amount, tokenSymbol)
-	onBehalfOf := common.HexToAddress("0x0000000000000000000000000000000000000000") // 调用者自�?
+	onBehalfOf := common.HexToAddress("0x0000000000000000000000000000000000000000") // 调用者自身
 	calldata := adapter.BuildDepositCalldata(assetAddr, amount, onBehalfOf)
 	return append(targets, poolAddr), append(datas, calldata)
 }
@@ -265,7 +265,7 @@ func tokenAddr(symbol string) common.Address {
 	return common.Address{}
 }
 
-// tokenDecimal 返回代币的小数位�?
+// tokenDecimal 返回代币的小数位数
 func tokenDecimal(symbol string) int64 {
 	switch symbol {
 	case "USDT", "USDC":

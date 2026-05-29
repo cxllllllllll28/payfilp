@@ -25,12 +25,12 @@ func NewIntentExecutor(txmgr *tx.TxManager, rpcURL string, chainID int64, txBuil
 	}
 }
 
-// ExecuteCalldata 统一执行入口 �?接受 targets/datas/values，打包一个多步交易发�?
+// ExecuteCalldata 统一执行入口，接受 targets/datas/values，打包一个多步交易发送
 func (e *IntentExecutor) ExecuteCalldata(ctx context.Context, targets []common.Address, values []*big.Int, datas [][]byte) (string, error) {
 	if len(targets) == 0 {
 		return "", fmt.Errorf("empty calldata")
 	}
-	// 把多�?calldata 塞进一个多投交�?
+	// 把多个 calldata 塞进一个多投交易
 	tx, err := e.txmgr.BuildBatchTx(ctx, targets, values, datas)
 	if err != nil {
 		return "", fmt.Errorf("build batch tx: %w", err)
