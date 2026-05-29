@@ -80,23 +80,6 @@ type MantleConfig struct {
 	ChainID int64  // Mantle chain ID (env: MANTLE_CHAIN_ID, default: 5000)
 }
 
-// === Mantle 合约地址常量 ===
-
-// MantleEntryPointV08 Pimlico ERC-4337 EntryPoint v0.8（公共，无需自行部署）
-const MantleEntryPointV08 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
-
-// 验证: cast code 0x0000000071727De22E5E9d8BAf0edAc6f37da032 --rpc-url https://rpc.mantle.xyz
-
-// MantleUSDT USDT on Mantle 主网
-const MantleUSDT = "0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE"
-
-// 验证: cast code 0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE --rpc-url https://rpc.mantle.xyz
-
-// PimlicoBundlerURL 返回 Mantle 链的 Pimlico Bundler RPC 地址
-func PimlicoBundlerURL() string {
-	return fmt.Sprintf("https://api.pimlico.io/v2/5000/rpc?apikey=%s", getEnv("PIMLICO_API_KEY", ""))
-}
-
 func NewMantleConfig() *MantleConfig {
 	// Load .env file — ok if missing (production uses system env vars)
 	_ = godotenv.Load()

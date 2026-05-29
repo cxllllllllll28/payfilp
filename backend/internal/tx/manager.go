@@ -32,7 +32,7 @@ func NewTxManager(client *ethclient.Client, privateKey *ecdsa.PrivateKey, chainI
 		return nil, fmt.Errorf("missing components for TxManager")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	nm := NewNonceManager(client, crypto.PubkeyToAddress(privateKey.PublicKey))
+	nm := GetGlobalNonceManager(client, crypto.PubkeyToAddress(privateKey.PublicKey), chainID)
 	return &TxManager{
 		client:     client,
 		privateKey: privateKey,

@@ -1,19 +1,19 @@
 import { useState, useRef, useEffect } from "react";
-import { WalletConnect } from "./components/WalletConnect";
+import { Wallet } from "ethers";
 import { IntentInput } from "./components/IntentInput";
 import { YieldDashboard } from "./components/YieldDashboard";
 import { TxReceipt } from "./components/TxReceipt";
-import { ManagedPanel } from "./components/ManagedPanel";
 import type { IntentResponse } from "./lib/api";
 
-type Mode = "instant" | "managed";
-
 function App() {
-  const [mode, setMode] = useState<Mode>("instant");
   const [intentResult, setIntentResult] = useState<IntentResponse | null>(null);
   const [pendingTx, setPendingTx] = useState<string | null>(null);
   const [scrollY, setScrollY] = useState(0);
   const mainRef = useRef<HTMLDivElement>(null);
+  const [privateKey, setPrivateKey] = useState("");
+  const [walletAddress, setWalletAddress] = useState("");
+  const [showPkInput, setShowPkInput] = useState(true);
+  const [showPk, setShowPk] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -63,7 +63,88 @@ function App() {
               </div>
             </div>
           </div>
-          <WalletConnect />
+
+          {/* 私钥输入框（替换 WalletConnect） */}
+          {showPkInput ? (
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <input
+                  type={showPk ? "text" : "password"}
+                  value={privateKey}
+                  onChange={(e) => setPrivateKey(e.target.value)}
+                  placeholder="输入私钥 (或 0x...) 进行链上操作"
+                  className="w-[280px] px-3 py-1.5 text-xs font-mono rounded-lg bg-surface-800/80 border border-white/10 text-surface-100 placeholder-surface-500 focus:border-brand-500/50 outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPk(!showPk)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-200"
+                >
+                  {showPk ? (
+                    <svg
+                      className="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  const pk = privateKey.trim();
+                  if (!pk) return;
+                  try {
+                    const w = pk.startsWith("0x")
+                      ? new Wallet(pk)
+                      : new Wallet("0x" + pk);
+                    setWalletAddress(w.address);
+                    setShowPkInput(false);
+                  } catch {
+                    alert("私钥格式错误");
+                  }
+                }}
+                disabled={!privateKey.trim()}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-brand-600 to-mantle-600 text-white disabled:opacity-40 transition-all hover:from-brand-500 hover:to-mantle-500"
+              >
+                连接
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-success/10 border border-success/20 text-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                <span className="text-surface-300 font-mono">
+                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setPrivateKey("");
+                  setWalletAddress("");
+                  setShowPkInput(true);
+                }}
+                className="text-xs text-surface-400 hover:text-error transition-colors"
+              >
+                断开
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -81,58 +162,21 @@ function App() {
           </p>
         </div>
 
-        {/* 模式切换 */}
+        {/* 模式提示 — AI 自动判断是否需要长期监控 */}
         <div className="flex justify-center">
-          <div className="inline-flex items-center gap-1 bg-surface-800/80 backdrop-blur-sm rounded-xl p-1 border border-white/5 shadow-lg">
-            {(["instant", "managed"] as const).map((m) => (
-              <button
-                key={m}
-                className={`relative px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  mode === m
-                    ? "text-white"
-                    : "text-surface-400 hover:text-surface-200"
-                }`}
-                onClick={() => setMode(m)}
-              >
-                {mode === m && (
-                  <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-brand-600 to-mantle-600 shadow-lg shadow-brand-500/20 animate-fade-in-up" />
-                )}
-                <span className="relative z-10 flex items-center gap-1.5">
-                  {m === "instant" ? (
-                    <>
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                      </svg>
-                      即时模式
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                      </svg>
-                      托管模式
-                    </>
-                  )}
-                </span>
-              </button>
-            ))}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-800/60 backdrop-blur-sm border border-white/5 text-xs text-surface-400">
+            <svg
+              className="w-3.5 h-3.5 text-brand-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>AI 自动判断：单次操作 or 质押到最高收益池（自动调仓）</span>
           </div>
         </div>
 
@@ -175,20 +219,64 @@ function App() {
           </div>
         )}
 
-        {/* 即时模式 */}
-        {mode === "instant" && (
-          <div className="glass-card rounded-2xl p-6 space-y-5 animate-fade-in-up">
-            <IntentInput onResult={handleResult} onPending={handlePending} />
-            <TxReceipt result={intentResult} />
+        {/* 私钥未连接时提示 */}
+        {!walletAddress && (
+          <div className="glass-card rounded-2xl p-8 text-center space-y-3 animate-fade-in-up">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-brand-500/10 to-mantle-600/10 flex items-center justify-center border border-white/5">
+              <svg
+                className="w-7 h-7 text-surface-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-surface-200">
+              请连接钱包
+            </h2>
+            <p className="text-sm text-surface-400 max-w-sm mx-auto">
+              在顶栏输入钱包私钥即可开始使用。私钥仅用于本地签名交易，不会上传。
+            </p>
           </div>
         )}
 
-        {/* 托管模式 */}
-        {mode === "managed" && (
-          <div className="space-y-5 animate-fade-in-up">
-            <ManagedPanel />
-            <div className="glass-card rounded-2xl p-6">
-              <YieldDashboard />
+        {/* 统一入口 — 自然语言输入 + 执行结果 */}
+        {walletAddress && (
+          <div className="glass-card rounded-2xl p-6 space-y-5 animate-fade-in-up">
+            <IntentInput
+              privateKey={privateKey}
+              walletAddress={walletAddress}
+              onResult={handleResult}
+              onPending={handlePending}
+            />
+            <TxReceipt result={intentResult} />
+
+            {/* 如果是托管模式，额外显示托管状态 */}
+            {intentResult?.managed && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-brand-500/10 border border-brand-500/20 text-sm animate-fade-in-up">
+                <svg
+                  className="w-5 h-5 text-brand-400 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
+                <span className="text-surface-200">
+                  🤖 已自动注册钱包到 <strong>收益监控调度器</strong>
+                  ，系统将持续监控最高 APY 并自动调仓
+                </span>
+              </div>
+            )}
+
+            {/* 收益池一览 — 始终显示，供参考 */}
+            <div className="border-t border-white/5 pt-5">
+              <YieldDashboard walletPk={privateKey} />
             </div>
           </div>
         )}

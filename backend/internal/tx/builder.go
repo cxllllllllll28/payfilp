@@ -9,16 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// TokenAddr 代币符号 → Mantle 主网地址
-func TokenAddr(symbol string) common.Address {
-	m := map[string]common.Address{
-		"USDT": common.HexToAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
-		"USDC": common.HexToAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
-		"MNT":  common.HexToAddress("0x3c3a81e81dc49A522A592e7622A7E711c06bf354"),
-	}
-	return m[symbol]
-}
-
 // BuildApproveCalldata 构造 ERC-20 approve(spender, amount) calldata
 func BuildApproveCalldata(spender common.Address, amount *big.Int) []byte {
 	sel := crypto.Keccak256([]byte("approve(address,uint256)"))[:4]
@@ -42,7 +32,6 @@ func BuildUnwrapMETHCalldata(amount *big.Int) []byte {
 // DEX 路由表
 var dexRouters = map[string]common.Address{
 	"MerchantMoe": common.HexToAddress("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"),
-	"Agni":        common.HexToAddress(""), // TBD
 }
 
 // SwapRoute DEX 兑换路由信息
@@ -72,7 +61,8 @@ func NewBuilder(mgr *TxManager) *Builder {
 //
 // 调用 ABI: swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin,
 //                                    address[] path, address to, uint256 deadline)
-func (b *Builder) BuildSwapCalldata(ctx context.Context, fromToken, toToken common.Address, amountIn *big.Int) ([]byte, *SwapRoute, error) {
+// recipient: 换出的代币接收地址（传入用户 EOA 地址，不能传零地址）
+func (b *Builder) BuildSwapCalldata(ctx context.Context, fromToken, toToken common.Address, amountIn *big.Int, recipient common.Address) ([]byte, *SwapRoute, error) {
 	router := dexRouters["MerchantMoe"]
 	if router == (common.Address{}) {
 		return nil, nil, fmt.Errorf("no DEX router configured for this chain")
@@ -87,10 +77,10 @@ func (b *Builder) BuildSwapCalldata(ctx context.Context, fromToken, toToken comm
 	// swapExactTokensForTokens(address,uint256,address[],address,uint256)
 	calldata, err := packSwapExactTokensForTokens(
 		amountIn,
-		big.NewInt(1),                 // amountOutMin: 最少 1 wei（测试用）
+		big.NewInt(1),         // amountOutMin: 最少 1 wei（测试用）
 		[]common.Address{fromToken, toToken},
-		b.ownerAddress,               // 换完的 token 发给自己
-		big.NewInt(9999999999),        // deadline: 远的将来
+		recipient,              // 换出的 token 发到用户 EOA
+		big.NewInt(9999999999), // deadline: 远的将来
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pack swap calldata: %w", err)
@@ -109,8 +99,9 @@ func packSwapExactTokensForTokens(amountIn, amountOutMin *big.Int, path []common
 	data := append(selector, common.LeftPadBytes(amountIn.Bytes(), 32)...)
 	data = append(data, common.LeftPadBytes(amountOutMin.Bytes(), 32)...)
 
-	// address[] path — 先写偏移量（0x80），再写长度，再写地址
-	pathOffset := common.LeftPadBytes(big.NewInt(128).Bytes(), 32) // 偏移 128 bytes
+	// address[] path — 先写偏移量（0xa0），再写长度，再写地址
+	// 前面有 5 个静态参数: amountIn(32) + amountOutMin(32) + pathOffset(32) + to(32) + deadline(32) = 160 bytes = 0xa0
+	pathOffset := common.LeftPadBytes(big.NewInt(160).Bytes(), 32) // 偏移 160 bytes = 5×32
 	data = append(data, pathOffset...)
 
 	toBytes := common.LeftPadBytes(to.Bytes(), 32)

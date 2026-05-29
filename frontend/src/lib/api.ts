@@ -11,6 +11,8 @@ export interface IntentResponse {
   explorerUrl?: string;
   error?: string;
   steps?: string;
+  mode?: string;
+  managed?: boolean;
 }
 
 export interface YieldPool {
@@ -49,7 +51,9 @@ export async function executeIntent(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`后端错误(${res.status}): ${text || "后端未响应，请确认后端已启动"}`);
+    throw new Error(
+      `后端错误(${res.status}): ${text || "后端未响应，请确认后端已启动"}`,
+    );
   }
   const text = await res.text();
   if (!text) throw new Error("后端返回空响应，请确认后端已启动");

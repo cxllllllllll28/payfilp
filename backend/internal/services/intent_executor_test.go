@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
 
+	"github.com/yourusername/hacker-mantle-backend/config"
 	"github.com/yourusername/hacker-mantle-backend/internal/tx"
 )
 
@@ -28,8 +29,10 @@ func TestMultiStep_ApproveSwap(t *testing.T) {
 	chainID, _ := client.ChainID(context.Background())
 
 	txmgr, _ := tx.NewTxManager(client, privKey, chainID)
-	executor := NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), tx.NewBuilder(txmgr))
-	svc := NewIntentService(tx.NewBuilder(txmgr))
+	builder := tx.NewBuilder(txmgr)
+	executor := NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), builder)
+	registry, _ := config.ParseProtocolRegistry([]byte(`{"protocols":[]}`))
+	svc := NewIntentService(builder, registry)
 
 	// ── 1. AI 意图解析 ──
 	input := "帮我把 1 USDT 换成 MNT"

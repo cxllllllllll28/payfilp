@@ -2,110 +2,45 @@
 import { executeIntent } from "../lib/api";
 import type { IntentResponse } from "../lib/api";
 
-async function switchToMantleSepolia() {
-  if (!window.ethereum) return;
-  try {
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: "0x138B" }],
-    });
-  } catch (e: any) {
-    if (e.code === 4902) {
-      await window.ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [
-          {
-            chainId: "0x138B",
-            chainName: "Mantle Sepolia",
-            nativeCurrency: { name: "MNT", symbol: "MNT", decimals: 18 },
-            rpcUrls: ["https://rpc.sepolia.mantle.xyz"],
-            blockExplorerUrls: ["https://explorer.sepolia.mantle.xyz"],
-          },
-        ],
-      });
-    }
-  }
-}
-
-async function waitForReceipt(
-  txHash: string,
-  maxWaitMs = 60000,
-): Promise<boolean> {
-  const pollInterval = 2000;
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    await new Promise((r) => setTimeout(r, pollInterval));
-    try {
-      const receipt = (await window.ethereum!.request({
-        method: "eth_getTransactionReceipt",
-        params: [txHash],
-      })) as any;
-      if (receipt) {
-        return receipt.status === "0x1";
-      }
-    } catch {
-      /* retry */
-    }
-  }
-  return false;
-}
-
 interface IntentInputProps {
+  privateKey: string;
+  walletAddress: string;
   onResult: (result: IntentResponse) => void;
   onPending?: (txHash: string) => void;
 }
 
-export function IntentInput({ onResult, onPending }: IntentInputProps) {
+export function IntentInput({
+  privateKey,
+  walletAddress,
+  onResult,
+  onPending,
+}: IntentInputProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const execute = async () => {
     if (!input.trim()) return;
-    if (!window.ethereum) {
-      setError("请先安装 MetaMask 钱包");
+    if (!privateKey) {
+      setError("请先在顶栏连接钱包");
       return;
     }
     setLoading(true);
     setError("");
     try {
-      const accounts = (await window.ethereum.request({
-        method: "eth_requestAccounts",
-      })) as string[];
-      if (!accounts || accounts.length === 0) {
-        setError("请先连接钱包");
-        return;
-      }
-      await switchToMantleSepolia();
+      // 直接把私钥发给后端，后端用私钥签名并发送交易
+      const result = await executeIntent({
+        input,
+        walletPk: privateKey.startsWith("0x") ? privateKey : "0x" + privateKey,
+      });
 
-      const result = await executeIntent({ input, walletPk: "" });
       if (result.error) {
         setError(result.error);
         return;
       }
 
-      if ((result as any).preview && (result as any).txParams) {
-        const txParams = (result as any).txParams as Array<{
-          to: string;
-          value: string;
-          data: string;
-        }>;
-        for (const tx of txParams) {
-          const txHash = (await window.ethereum.request({
-            method: "eth_sendTransaction",
-            params: [
-              { from: accounts[0], to: tx.to, value: "0x0", data: tx.data },
-            ],
-          })) as string;
-
-          onPending?.(txHash);
-          (result as any).txHash = txHash;
-          (result as any).explorerUrl =
-            `https://explorer.sepolia.mantle.xyz/tx/${txHash}`;
-
-          const status = await waitForReceipt(txHash);
-          (result as any).success = status;
-        }
+      if (result.txHash) {
+        onPending?.(result.txHash);
       }
       onResult(result);
     } catch (err) {
@@ -136,10 +71,10 @@ export function IntentInput({ onResult, onPending }: IntentInputProps) {
             placeholder="例如：帮我把 1 MNT 换成 USDT"
             className="input-glow w-full px-4 py-3 rounded-xl bg-surface-800/80 border border-white/10 text-surface-100 placeholder-surface-500 focus:border-brand-500/50 outline-none text-sm transition-all duration-200"
           />
-          {input.length > 0 && (
+          {walletAddress && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-              <span className="text-[10px] text-surface-500 font-mono">
-                {input.length}
+              <span className="text-[10px] text-surface-500 font-mono hidden sm:inline">
+                {walletAddress.slice(0, 6)}...
               </span>
             </div>
           )}

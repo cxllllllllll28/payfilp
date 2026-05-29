@@ -56,6 +56,11 @@ func SetupRouterWithYield(intentHandler *IntentHandler, yieldHandler *YieldHandl
 	yieldGroup := router.Group("/api/yield")
 	yieldGroup.GET("/current", yieldHandler.GetCurrentYields)
 	yieldGroup.POST("/rebalance", yieldHandler.TriggerRebalance)
+	yieldGroup.POST("/register", yieldHandler.RegisterManaged)
+
+	// === 托管钱包注册接口（兼容前端旧调用）===
+	managedGroup := router.Group("/api/managed")
+	managedGroup.POST("/register", yieldHandler.RegisterManaged)
 
 	return router
 }

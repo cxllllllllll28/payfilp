@@ -3,11 +3,18 @@ package tx
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+// ── 全局 Nonce 管理器（按钱包地址 + RPC 共享） ──────────────────────────────
+
+var (
+	globalNMCache sync.Map   // key: "chainID:addr" → *NonceManager
 )
 
 // NonceManager 单个地址的 nonce 分配（线程安全）
@@ -20,12 +27,14 @@ type NonceManager struct {
 	lastSync  time.Time
 }
 
-// NewNonceManager 创建 nonce 管理器
-func NewNonceManager(client *ethclient.Client, addr common.Address) *NonceManager {
-	return &NonceManager{
+// GetGlobalNonceManager 获取或创建全局 nonce 管理器（按 chainID:addr 共享）
+func GetGlobalNonceManager(client *ethclient.Client, addr common.Address, chainID *big.Int) *NonceManager {
+	key := chainID.String() + ":" + addr.Hex()
+	val, _ := globalNMCache.LoadOrStore(key, &NonceManager{
 		client: client,
 		addr:   addr,
-	}
+	})
+	return val.(*NonceManager)
 }
 
 // Next 返回下一个可用 nonce

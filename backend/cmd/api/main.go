@@ -27,9 +27,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/yourusername/hacker-mantle-backend/config"
 	"github.com/yourusername/hacker-mantle-backend/internal/api"
+	"github.com/yourusername/hacker-mantle-backend/internal/scheduler"
 	"github.com/yourusername/hacker-mantle-backend/internal/services"
 	"github.com/yourusername/hacker-mantle-backend/internal/tx"
 )
@@ -47,13 +49,69 @@ func main() {
 
 	fmt.Printf("✅ 已连接 Mantle 主网 (ChainID: %d)\n", cfg.ChainID)
 
-	// 3. 初始化 Intent Handler
-	builder := tx.NewBuilder(nil) // 仅用于 calldata 编排，不依赖 mgr
-	intentSvc := services.NewIntentService(builder)
-	intentHandler := api.NewIntentHandler(intentSvc)
+	// 3. 加载协议注册表
+	registry, err := config.LoadProtocolRegistry("config/protocols.json")
+	if err != nil {
+		log.Printf("⚠️ 协议注册表加载失败（将继续用硬编码模式）: %v", err)
+		registry, _ = config.ParseProtocolRegistry([]byte(`{"protocols":[]}`))
+	} else {
+		log.Printf("📋 已加载 %d 个协议适配器: %s", len(registry.All()), registry.ProtocolNames())
+	}
 
-	// 4. 初始化路由
-	router := api.SetupRouter(intentHandler)
+	// 4. 初始化 Handler
+	builder := tx.NewBuilder(nil)
+	intentSvc := services.NewIntentService(builder, registry)
+
+	yieldSvc := services.NewYieldService()
+	schedCb := func(d scheduler.RebalanceDecision) {
+		fmt.Printf("[调度] 调仓建议: %+v\n", d)
+	}
+	sched := scheduler.NewScheduler(30*time.Minute, schedCb)
+
+	// 设置自动换仓执行器 — 从私钥恢复钱包，发送 swap+stake 交易
+	sched.SetExecutor(func(wallet scheduler.ManagedWallet, d scheduler.RebalanceDecision) error {
+		privKey, err := crypto.HexToECDSA(wallet.PrivateKey)
+		if err != nil {
+			return fmt.Errorf("恢复私钥: %w", err)
+		}
+		rpcURL := os.Getenv("MANTLE_TESTNET_RPC")
+		if rpcURL == "" { rpcURL = "https://rpc.sepolia.mantle.xyz" }
+		cli, err := ethclient.Dial(rpcURL)
+		if err != nil {
+			return fmt.Errorf("连接 RPC: %w", err)
+		}
+		defer cli.Close()
+		chainID, _ := cli.ChainID(context.Background())
+		txmgr, err := tx.NewTxManager(cli, privKey, chainID)
+		if err != nil {
+			return fmt.Errorf("创建 TxManager: %w", err)
+		}
+		defer txmgr.Stop()
+		executor := services.NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), tx.NewBuilder(txmgr))
+		// 构造换仓步骤：取出旧仓 → 换成目标代币 → 存入新池
+		// 简化版：执行 intent "质押到最佳池"
+		svc := services.NewIntentService(tx.NewBuilder(txmgr), registry)
+		plan, err := svc.BuildPlan(fmt.Sprintf("把所有资金都存到 %s 收益池", d.ToProtocol))
+		if err != nil {
+			return fmt.Errorf("解析调仓意图: %w", err)
+		}
+		targets, values, datas := svc.BuildCalldata(plan.Steps)
+		if len(targets) == 0 {
+			return fmt.Errorf("调仓无步骤")
+		}
+		_, err = executor.ExecuteCalldata(context.Background(), targets, values, datas)
+		return err
+	})
+
+	intentHandler := api.NewIntentHandler(intentSvc, sched)
+	yieldHandler := api.NewYieldHandler(yieldSvc, sched)
+
+	// 启动收益调度器（30分钟检查一次最佳APY）
+	sched.Start()
+	fmt.Println("⏰ 收益调度器已启动（周期: 30分钟）")
+
+	// 4. 初始化路由（带收益接口）
+	router := api.SetupRouterWithYield(intentHandler, yieldHandler)
 
 	// 4. 启动 HTTP 服务（支持优雅关闭）
 	srv := &http.Server{

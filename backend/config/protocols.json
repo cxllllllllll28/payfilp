@@ -1,0 +1,28 @@
+{
+  "protocols": [
+    {
+      "name": "mETH",
+      "poolAddress": "0xcDA86A272531e8640cD7F1a92c01839911B90bb0",
+      "depositSig": "deposit()",
+      "withdrawSig": "withdraw(uint256)",
+      "assets": ["MNT"],
+      "receiptToken": "mETH"
+    },
+    {
+      "name": "Aave V3",
+      "poolAddress": "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      "depositSig": "supply(address,uint256,address,uint16)",
+      "withdrawSig": "withdraw(address,uint256,address)",
+      "assets": ["USDT", "USDC", "DAI", "MNT"],
+      "receiptToken": "aUSDT"
+    },
+    {
+      "name": "Ondo USDY",
+      "poolAddress": "0x8c82B0bD9613b0C6CdED0aE8C1a06191E87F0aF4",
+      "depositSig": "deposit(uint256)",
+      "withdrawSig": "withdraw(uint256)",
+      "assets": ["USDT"],
+      "receiptToken": "USDY"
+    }
+  ]
+}

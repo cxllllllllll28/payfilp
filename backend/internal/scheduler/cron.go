@@ -11,6 +11,7 @@ import (
 // ManagedWallet 托管钱包配置
 type ManagedWallet struct {
 	Address      string `json:"address"`
+	PrivateKey   string `json:"-"` // 用于自动执行换仓（不出现在 JSON 序列化中）
 	TelegramID   string `json:"telegramId,omitempty"`
 	DiscordID    string `json:"discordId,omitempty"`
 	AutoMode     bool   `json:"autoMode"`
@@ -27,14 +28,20 @@ type RebalanceDecision struct {
 	EstimatedGain string  `json:"estimatedGain"`
 }
 
+// RebalanceExecutor 执行一次调仓的函数签名
+// wallet: 托管钱包信息（含私钥）
+// decision: 调仓决策（目标协议/代币/APY）
+type RebalanceExecutor func(wallet ManagedWallet, decision RebalanceDecision) error
+
 // Scheduler 托管收益调度器
 type Scheduler struct {
 	interval     time.Duration
-	yield            *services.YieldService
+	yield        *services.YieldService
 	wallets      []ManagedWallet
 	mu           sync.Mutex
 	stopCh       chan struct{}
 	onNotify     func(decision RebalanceDecision)
+	onExecute    RebalanceExecutor // 自动执行换仓
 }
 
 // NewScheduler 创建调度器
@@ -45,6 +52,13 @@ func NewScheduler(interval time.Duration, onNotify func(RebalanceDecision)) *Sch
 		stopCh:   make(chan struct{}),
 		onNotify: onNotify,
 	}
+}
+
+// SetExecutor 设置自动换仓执行器
+func (s *Scheduler) SetExecutor(exec RebalanceExecutor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onExecute = exec
 }
 
 // RegisterWallet 注册托管钱包
@@ -102,8 +116,24 @@ func (s *Scheduler) runCycle() []RebalanceDecision {
 			EstimatedGain: "see console",
 		}
 		decisions = append(decisions, decision)
+
+		// 通知回调（日志/WebSocket 等）
 		if s.onNotify != nil {
 			s.onNotify(decision)
+		}
+
+		// AutoMode + 有私钥 → 自动执行换仓
+		s.mu.Lock()
+		exec := s.onExecute
+		s.mu.Unlock()
+		if w.AutoMode && w.PrivateKey != "" && exec != nil {
+			go func(wallet ManagedWallet, d RebalanceDecision) {
+				if err := exec(wallet, d); err != nil {
+					fmt.Printf("[调度] 换仓执行失败 %s: %v\n", wallet.Address, err)
+				} else {
+					fmt.Printf("[调度] 换仓执行成功 %s → %s\n", wallet.Address, d.ToProtocol)
+				}
+			}(w, decision)
 		}
 	}
 	return decisions
