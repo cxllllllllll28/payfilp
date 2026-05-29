@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { fetchCurrentYields, triggerRebalance } from "../lib/api";
 import type { YieldPool } from "../lib/api";
 
+const POLL_INTERVAL = 30000; // 30 秒轮询
+
 interface YieldDashboardProps {
   walletPk: string;
 }
@@ -12,12 +14,15 @@ export function YieldDashboard({ walletPk }: YieldDashboardProps) {
   const [rebalancing, setRebalancing] = useState(false);
   const [rebalanceResult, setRebalanceResult] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<string>("");
 
   const loadYields = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchCurrentYields();
       setPools(data.pools || []);
+      setError("");
+      setLastUpdated(new Date().toLocaleTimeString());
     } catch (err) {
       setError(`获取收益数据失败: ${(err as Error).message}`);
     } finally {
@@ -27,6 +32,8 @@ export function YieldDashboard({ walletPk }: YieldDashboardProps) {
 
   useEffect(() => {
     loadYields();
+    const interval = setInterval(loadYields, POLL_INTERVAL);
+    return () => clearInterval(interval);
   }, [loadYields]);
 
   const handleRebalance = async () => {
@@ -87,7 +94,9 @@ export function YieldDashboard({ walletPk }: YieldDashboardProps) {
             <h3 className="text-base font-semibold text-surface-100">
               Mantle 收益池
             </h3>
-            <p className="text-xs text-surface-400">Top 10 高收益池实时排行</p>
+            <p className="text-xs text-surface-400">
+              {lastUpdated ? `上次更新: ${lastUpdated}` : "加载中..."}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">

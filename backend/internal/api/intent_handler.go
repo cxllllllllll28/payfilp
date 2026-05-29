@@ -2,25 +2,44 @@ package api
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
 
-	"github.com/yourusername/hacker-mantle-backend/internal/scheduler"
-	"github.com/yourusername/hacker-mantle-backend/internal/services"
-	"github.com/yourusername/hacker-mantle-backend/internal/tx"
+	"github.com/yourusername/payflip-backend/internal/scheduler"
+	"github.com/yourusername/payflip-backend/internal/services"
+	"github.com/yourusername/payflip-backend/internal/tx"
 )
 
 type IntentHandler struct {
-	svc      *services.IntentService
+	svc       *services.IntentService
 	scheduler *scheduler.Scheduler
+}
+
+// txManagerCache 全局 TxManager 缓存，按 "chainID:addr" 共享 NonceManager
+var txManagerCache sync.Map
+
+func getOrCreateTxManager(ctx context.Context, client *ethclient.Client, privKey *ecdsa.PrivateKey, chainID *big.Int) (*tx.TxManager, error) {
+	addr := crypto.PubkeyToAddress(privKey.PublicKey)
+	key := chainID.String() + ":" + addr.Hex()
+	if val, ok := txManagerCache.Load(key); ok {
+		return val.(*tx.TxManager), nil
+	}
+	mgr, err := tx.NewTxManager(client, privKey, chainID)
+	if err != nil {
+		return nil, err
+	}
+	val, _ := txManagerCache.LoadOrStore(key, mgr)
+	return val.(*tx.TxManager), nil
 }
 
 func NewIntentHandler(svc *services.IntentService, sched *scheduler.Scheduler) *IntentHandler {
@@ -46,7 +65,7 @@ func (h *IntentHandler) ExecuteIntent(c *gin.Context) {
 
 	targets, values, datas := h.svc.BuildCalldata(plan.Steps)
 
-	// 无私钥 → 返回交易参数让前端 MetaMask 签名
+	// 无私钥→返回交易参数让前端MetaMask 签名
 	if req.WalletPK == "" {
 		var txParams []map[string]interface{}
 		for i := range targets {
@@ -78,7 +97,7 @@ func (h *IntentHandler) ExecuteIntent(c *gin.Context) {
 	}
 	explorerURL := explorerBase + "/tx/" + hash
 
-	// 如果是托管模式 → 自动注册托管监控（存私钥用于自动换仓）
+	// 如果是托管模式→自动注册托管监控（存私钥用于自动换仓）
 	var managed bool
 	if plan.Mode == "managed" {
 		managed = true
@@ -89,7 +108,7 @@ func (h *IntentHandler) ExecuteIntent(c *gin.Context) {
 				PrivateKey: strings.TrimPrefix(req.WalletPK, "0x"),
 				AutoMode:   true,
 			})
-			fmt.Printf("[托管] 已自动注册钱包 %s 到收益监控调度器（含自动换仓）\n", wallet.Hex())
+			fmt.Printf("[托管] 已自动注册钱包%s 到收益监控调度器（含自动换仓）\n", wallet.Hex())
 		}
 	}
 
@@ -123,7 +142,10 @@ func (h *IntentHandler) executeOnChain(ctx context.Context, pkHex string, target
 	client, _ := ethclient.Dial(rpcURL)
 	defer client.Close()
 	chainID, _ := client.ChainID(ctx)
-	txmgr, _ := tx.NewTxManager(client, privKey, chainID)
+	txmgr, err := getOrCreateTxManager(ctx, client, privKey, chainID)
+	if err != nil {
+		return "", "", fmt.Errorf("create tx manager: %w", err)
+	}
 	executor := services.NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), tx.NewBuilder(txmgr))
 	hash, err := executor.ExecuteCalldata(ctx, targets, values, datas)
 	if err != nil {

@@ -38,32 +38,6 @@ Q4: godotenv.Load() 和 t.Setenv() 同时用会有什么问题？
 	所以测试"默认值"时，不能用 Setenv 清空环境变量再断言具体值。
 	正确做法：验证结构完整性（值不为空、范围合理），而不是验精确匹配。
 
-=== Mantle 合约地址（任务 2） ===
-	EntryPoint v0.8 (Pimlico) → 0x0000000071727De22E5E9d8BAf0edAc6f37da032
-	USDT (Mantle 主网)         → 0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE
-	验证命令: cast code 0x... --rpc-url https://rpc.mantle.xyz
-
-Q5: MantleEntryPointV08 和 PimlicoBundlerURL 如何搭配使用？
-	EntryPoint 是链上合约地址，Pimlico 是帮你把交易发给这个合约的中转站。
-
-	你（Go 后端）
-	    │ 1. 构造并签名 UserOperation
-	    │ 2. POST JSON 到 PimlicoBundlerURL()
-	    ▼
-	Pimlico Bundler（链下服务）
-	    │ 3. 验证 UserOp 合法性
-	    │ 4. 调用 EntryPoint 合约的 handleOps()
-	    ▼
-	MantleEntryPointV08（链上 ERC-4337 合约）
-	    │ 5. 验证用户签名（通过 Simple7702Account.validateUserOp）
-	    │ 6. 执行 calldata（调用 Simple7702Account.execute）
-	    │ 7. 调用 Paymaster 收 Gas 费（现场从用户钱包 transferFrom USDT）
-	    ▼
-	目标合约（兑换 DEX / 质押协议）
-
-	关键：用户不需要持有 MNT，不需要提前存钱。
-	ERC20Paymaster 在交易发生时现场从用户钱包扣 USDT 作为 Gas 费。
-	用户的 UserOp 里包含了 USDT approve 授权，Paymaster 才能扣款。
 */
 package config
 

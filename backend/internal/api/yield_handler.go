@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/yourusername/hacker-mantle-backend/internal/scheduler"
-	"github.com/yourusername/hacker-mantle-backend/internal/services"
+	"github.com/yourusername/payflip-backend/internal/scheduler"
+	"github.com/yourusername/payflip-backend/internal/services"
 )
 
 // YieldHandler 收益管理 API
@@ -75,7 +75,7 @@ func (h *YieldHandler) TriggerRebalance(c *gin.Context) {
 		return
 	}
 
-	recommendation := fmt.Sprintf("当前最佳收益: %s %s (APY: %.2f%%, TVL: $%.2fM)",
+	recommendation := fmt.Sprintf("当前最佳收益 %s %s (APY: %.2f%%, TVL: $%.2fM)",
 		best.Protocol, best.Symbol, best.APY, best.TVLUsd/1_000_000)
 
 	// 如果没有私钥，只返回推荐
@@ -95,7 +95,7 @@ func (h *YieldHandler) TriggerRebalance(c *gin.Context) {
 	})
 }
 
-// RegisterManaged POST /api/yield/register  — 注册托管钱包
+// RegisterManaged POST /api/yield/register  —注册托管钱包
 func (h *YieldHandler) RegisterManaged(c *gin.Context) {
 	var req struct {
 		PrivateKey string `json:"privateKey"`

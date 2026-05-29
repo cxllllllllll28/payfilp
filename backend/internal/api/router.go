@@ -1,5 +1,5 @@
 /*
-Package api 路由配置 — AI Gasless Yield Agent
+Package api 路由配置 — AI DeFi Yield Agent
 
 === 知识点 ===
 

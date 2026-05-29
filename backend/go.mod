@@ -1,4 +1,4 @@
-module github.com/yourusername/hacker-mantle-backend
+module github.com/yourusername/payflip-backend
 
 go 1.26.2
 

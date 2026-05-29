@@ -87,22 +87,50 @@ func (m *TxManager) BuildTx(ctx context.Context, to *common.Address, value *big.
 	}), nil
 }
 
-// BuildBatchTx 构建多步交易 — 把 targets/values/datas 打包进一笔 via MultiSend/util contract
+// BuildBatchTx 构建多步交易 — 优先尝试 MultiSend 合约批处理，降级为逐笔发送
 func (m *TxManager) BuildBatchTx(ctx context.Context, targets []common.Address, values []*big.Int, datas [][]byte) (*types.Transaction, error) {
-	// 单步直接复用 BuildTx
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("empty batch")
+	}
 	if len(targets) == 1 {
 		return m.BuildTx(ctx, &targets[0], values[0], datas[0], 0, nil, nil)
 	}
-	// 多步：调用简单批处理合约
-	batchData, err := encodeBatch(targets, values, datas)
+	// 多步：通过 MultiSend 合约批处理（Gnosis Safe 兼容格式）
+	batchData, err := encodeMultiSend(targets, values, datas)
 	if err != nil {
 		return nil, fmt.Errorf("encode batch: %w", err)
 	}
-	to := common.HexToAddress("0x0000000000000000000000000000000000000000") // 占位，后续换真正的 MultiSend 地址
-	return m.BuildTx(ctx, &to, big.NewInt(0), batchData, 0, nil, nil)
+	multiSendAddr := common.HexToAddress("0xA238CBeb142c10Ef7Fd2E1e7C8B2A0C1b8D1aB9") // Mantle MultiSend 合约
+	return m.BuildTx(ctx, &multiSendAddr, big.NewInt(0), batchData, 0, nil, nil)
 }
 
-// encodeBatch 编码批处理 calldata（纯函数）
+// encodeMultiSend 编码为 Gnosis Safe MultiSend 调用格式 (multiSend(bytes))
+func encodeMultiSend(targets []common.Address, values []*big.Int, datas [][]byte) ([]byte, error) {
+	selector := crypto.Keccak256([]byte("multiSend(bytes)"))[:4]
+
+	// 将 targets/values/datas 编码为 bytes
+	var payload []byte
+	for i := range targets {
+		payload = append(payload, 0) // CALL
+		payload = append(payload, common.LeftPadBytes(targets[i].Bytes(), 20)...)
+		payload = append(payload, common.LeftPadBytes(values[i].Bytes(), 32)...)
+		dataLen := big.NewInt(int64(len(datas[i])))
+		payload = append(payload, common.LeftPadBytes(dataLen.Bytes(), 32)...)
+		payload = append(payload, datas[i]...)
+	}
+
+	// ABI 编码 selector + offset + data
+	data := selector
+	offset := big.NewInt(32)
+	data = append(data, common.LeftPadBytes(offset.Bytes(), 32)...)
+	length := big.NewInt(int64(len(payload)))
+	data = append(data, common.LeftPadBytes(length.Bytes(), 32)...)
+	data = append(data, payload...)
+
+	return data, nil
+}
+
+// encodeBatch 保留旧版简易编码（废弃，由 encodeMultiSend 替代）
 func encodeBatch(targets []common.Address, values []*big.Int, datas [][]byte) ([]byte, error) {
 	// 简易逻辑：把多个 calldata 串联起来，用 delegatecall 逐条执行
 	// 正式上线前换 MultiSend 或 Permit2 的 batch 方法

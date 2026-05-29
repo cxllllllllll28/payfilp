@@ -19,7 +19,7 @@ func NewSender(mgr *TxManager, rpcURL string, chainID int64) *Sender {
 	return &Sender{mgr: mgr, rpcURL: rpcURL, chainID: chainID}
 }
 
-// Send 发送交易（带优先级分路预留点 — 当前仅 normal 路径，后续可在此接入 Gasless / relayer）
+// Send 发送交易（当前仅 normal 路径：签名 → eth_sendRawTransaction）
 func (s *Sender) Send(ctx context.Context, tx *types.Transaction) (common.Hash, error) {
 	return s.sendNormal(ctx, tx)
 }

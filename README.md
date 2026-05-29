@@ -62,7 +62,6 @@ Powered by **DeepSeek API** with chain-of-thought reasoning for complex multi-pr
 ### 🔐 Flexible Signing
 
 - **Backend auto-execution** — provide private key for server-side signing.
-- **Frontend wallet signing** — works with any EVM wallet (MetaMask).
 
 ---
 
@@ -162,7 +161,7 @@ Powered by **DeepSeek API** with chain-of-thought reasoning for complex multi-pr
 ┌───────────────────────────────────────────────────────┐
 │              Mantle Blockchain                        │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────┐ │
-│  │ Aave V3  │  │  mETH    │  │Ondo USDY │  │ 4337 │ │
+│  │ Aave V3  │  │  mETH    │  │Ondo USDY │  │       │ │
 │  └──────────┘  └──────────┘  └──────────┘  │Entry │ │
 │                                             │Point │ │
 │                                             └──────┘ │
@@ -208,7 +207,7 @@ cd backend
 
 # Configure environment variables
 cp .env.example .env
-# Edit .env — set MANTLE_RPC_URL, DEEPSEEK_API_KEY, PIMLICO_API_KEY
+# Edit .env — set MANTLE_RPC_URL, DEEPSEEK_API_KEY
 
 # Run
 go run ./cmd/api/
@@ -408,7 +407,7 @@ mantleVault-hacker/
 │   │   │   ├── IntentInput.tsx      # NLP input
 │   │   │   ├── YieldDashboard.tsx   # Yield display
 │   │   │   ├── TxReceipt.tsx        # Tx result
-│   │   │   ├── WalletConnect.tsx    # Wallet connect
+│   │   │   ├── YieldDashboard.tsx   # Yield dashboard
 │   │   │   └── ManagedPanel.tsx     # Managed mode panel
 │   │   └── lib/
 │   │       └── api.ts              # API client
@@ -507,7 +506,7 @@ flowchart LR
 ### 🔐 灵活签名方式
 
 - **后端自动执行** — 提供私钥，服务端自动签名发送。
-- **前端钱包签名** — 兼容任意 EVM 钱包（MetaMask）。
+- **后端自动执行** — 提供私钥由服务端签名。
 
 ---
 
@@ -609,7 +608,7 @@ flowchart LR
 ┌───────────────────────────────────────────────────────┐
 │                  Mantle 区块链                         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────┐ │
-│  │ Aave V3  │  │  mETH    │  │Ondo USDY │  │ 4337 │ │
+│  │ Aave V3  │  │  mETH    │  │Ondo USDY │  │       │ │
 │  └──────────┘  └──────────┘  └──────────┘  │Entry │ │
 │                                             │Point │ │
 │                                             └──────┘ │
@@ -655,7 +654,7 @@ cd backend
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env — 设置 MANTLE_RPC_URL, DEEPSEEK_API_KEY, PIMLICO_API_KEY
+# 编辑 .env — 设置 MANTLE_RPC_URL, DEEPSEEK_API_KEY
 
 # 启动
 go run ./cmd/api/
@@ -855,7 +854,7 @@ mantleVault-hacker/
 │   │   │   ├── IntentInput.tsx      # 自然语言输入
 │   │   │   ├── YieldDashboard.tsx   # 收益展示
 │   │   │   ├── TxReceipt.tsx        # 交易结果
-│   │   │   ├── WalletConnect.tsx    # 钱包连接
+│   │   │   ├── YieldDashboard.tsx   # 收益仪表盘
 │   │   │   └── ManagedPanel.tsx     # 托管模式面板
 │   │   └── lib/
 │   │       └── api.ts              # API 客户端

@@ -9,11 +9,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/yourusername/hacker-mantle-backend/config"
-	"github.com/yourusername/hacker-mantle-backend/internal/tx"
+	"github.com/yourusername/payflip-backend/config"
+	"github.com/yourusername/payflip-backend/internal/tx"
 )
 
 // ── 意图解析结果 ────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ type StepPlan struct {
 type IntentService struct {
 	apiKey    string
 	baseURL   string
+	httpCli   *http.Client
 	txBuilder *tx.Builder
 	registry  *config.ProtocolRegistry
 }
@@ -51,12 +53,13 @@ func NewIntentService(txBuilder *tx.Builder, registry *config.ProtocolRegistry) 
 	return &IntentService{
 		apiKey:    os.Getenv("DEEPSEEK_API_KEY"),
 		baseURL:   "https://api.deepseek.com/v1",
+		httpCli:   &http.Client{Timeout: 15 * time.Second},
 		txBuilder: txBuilder,
 		registry:  registry,
 	}
 }
 
-// BuildPlan 解析自然语言 → 多步计划（单步/多步统一入口）
+// BuildPlan 解析自然语言为多步计划（单步多步统一入口）
 func (s *IntentService) BuildPlan(input string) (*StepPlan, error) {
 	if s.apiKey == "" {
 		return nil, fmt.Errorf("DEEPSEEK_API_KEY 未设置")
@@ -70,12 +73,12 @@ func (s *IntentService) BuildPlan(input string) (*StepPlan, error) {
 代币地址对应关系：USDT=0x201EBa5CC46D216Ce6DC03F6a759e8E766e956aE, MNT=0x3c3a81e81dc49A522A592e7622A7E711c06bf354, mETH=0xcDA86A272531e8640cD7F1a92c01839911B90bb0, USDY=0x8c82B0bD9613b0C6CdED0aE8C1a06191E87F0aF4。
 如果用户指定了协议名称，在 step 中填写 protocol 字段。
 
-金额单位: 用户输入的是人类可读单位（如 1 MNT、100 USDT），你直接输出即可。
+金额单位: 用户输入的是人类可读单位（如 1 MNT=100 USDT），你直接输出即可。
 连续步骤: 如果上一步是 swap，下一步的 amount 用 "all"（表示用上一步得到的全部）。除非用户明确指定新金额。
 
 mode 判断规则:
-- 如果用户明确说 "质押到收益最高的池"、"自动调仓"、"最高 APY"、"最佳收益" 或类似表达 → mode="managed"
-- 否则 → mode="single"
+- 如果用户明确说"质押到收益最高的"、"自动调仓"、"最高APY"、"最佳收益" 或类似表述，则 mode="managed"
+- 否则默认 mode="single"
 
 用户: %s
 只返回 JSON，格式: {"mode":"single","steps":[{"action":"swap","from":"MNT","to":"USDT","amount":"1"}]}`, s.registry.ProtocolPrompt(), input)
@@ -92,7 +95,7 @@ mode 判断规则:
 
 // ── calldata 编排 ────────────────────────────────────────────────────────────
 
-// BuildCalldata 把 steps 转成 targets/values/datas
+// BuildCalldata 将 steps 转成 targets/values/datas
 func (s *IntentService) BuildCalldata(steps []Step) (targets []common.Address, values []*big.Int, datas [][]byte) {
 	for _, step := range steps {
 		switch step.Action {
@@ -113,6 +116,29 @@ func (s *IntentService) BuildCalldata(steps []Step) (targets []common.Address, v
 // ── 私有 ─────────────────────────────────────────────────────────────────────
 
 func (s *IntentService) callDeepSeek(prompt string) (string, error) {
+	var lastErr error
+	maxRetries := 2
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(1 * time.Second)
+		}
+		content, err := s.callDeepSeekOnce(prompt)
+		if err == nil {
+			if strings.Contains(content, "{") && strings.Contains(content, "}") {
+				return content, nil
+			}
+			if len(content) > 100 {
+				content = content[:100]
+			}
+			lastErr = fmt.Errorf("返回内容不含 JSON: %s", content)
+			continue
+		}
+		lastErr = err
+	}
+	return "", fmt.Errorf("deepseek 请求失败（重试 %d 次后）: %w", maxRetries, lastErr)
+}
+
+func (s *IntentService) callDeepSeekOnce(prompt string) (string, error) {
 	reqBody := map[string]interface{}{
 		"model": "deepseek-chat",
 		"messages": []map[string]string{{"role": "user", "content": prompt}},
@@ -122,7 +148,7 @@ func (s *IntentService) callDeepSeek(prompt string) (string, error) {
 	httpReq, _ := http.NewRequest("POST", s.baseURL+"/chat/completions", bytes.NewReader(jsonBody))
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+s.apiKey)
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := s.httpCli.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("deepseek request: %w", err)
 	}
@@ -140,14 +166,13 @@ func (s *IntentService) callDeepSeek(prompt string) (string, error) {
 		return "", fmt.Errorf("deepseek response: %w", err)
 	}
 	if len(cr.Choices) == 0 {
-		return "", fmt.Errorf("deepseek empty")
+		return "", fmt.Errorf("deepseek empty choices")
 	}
 	content := strings.TrimSpace(cr.Choices[0].Message.Content)
 	content = strings.TrimPrefix(content, "```json")
 	content = strings.TrimPrefix(content, "```")
 	content = strings.TrimSuffix(content, "```")
 	content = strings.TrimSpace(content)
-	// Deepseek 偶尔在 JSON 前加文本，直接找第一个 { 开始
 	if idx := strings.IndexByte(content, '{'); idx > 0 {
 		content = content[idx:]
 	}
@@ -174,7 +199,7 @@ func (s *IntentService) packSwap(targets []common.Address, datas [][]byte, step 
 func (s *IntentService) packStake(targets []common.Address, datas [][]byte, step Step) ([]common.Address, [][]byte) {
 	adapter, ok := s.registry.Get(step.Protocol)
 	if !ok {
-		// fallback — 尝试按名称匹配
+		// fallback: 尝试按名称匹配
 		addr := common.HexToAddress(step.Protocol)
 		if addr == (common.Address{}) {
 			addr = tokenAddr(step.Protocol)
@@ -194,7 +219,7 @@ func (s *IntentService) packStake(targets []common.Address, datas [][]byte, step
 	}
 
 	amount := amountToBig(step.Amount, tokenSymbol)
-	onBehalfOf := common.HexToAddress("0x0000000000000000000000000000000000000000") // 调用者自己
+	onBehalfOf := common.HexToAddress("0x0000000000000000000000000000000000000000") // 调用者自�?
 	calldata := adapter.BuildDepositCalldata(assetAddr, amount, onBehalfOf)
 	return append(targets, poolAddr), append(datas, calldata)
 }
@@ -240,7 +265,7 @@ func tokenAddr(symbol string) common.Address {
 	return common.Address{}
 }
 
-// tokenDecimal 返回代币的小数位数
+// tokenDecimal 返回代币的小数位�?
 func tokenDecimal(symbol string) int64 {
 	switch symbol {
 	case "USDT", "USDC":
@@ -253,6 +278,10 @@ func tokenDecimal(symbol string) int64 {
 }
 
 func amountToBig(amount string, symbol ...string) *big.Int {
+	// 支持 "all" 关键字 — 返回 MaxUint256 表示授权全部余额
+	if strings.EqualFold(amount, "all") || amount == "" {
+		return MaxUint256()
+	}
 	a := new(big.Int)
 	a.SetString(amount, 10)
 	if a.Sign() == 0 {
@@ -265,4 +294,11 @@ func amountToBig(amount string, symbol ...string) *big.Int {
 	}
 	pow := new(big.Int).Exp(big.NewInt(10), big.NewInt(dec), nil)
 	return a.Mul(a, pow)
+}
+
+// MaxUint256 返回 2^256 - 1（ERC-20 approve 的最大值）
+func MaxUint256() *big.Int {
+	max := new(big.Int)
+	max.Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+	return max
 }

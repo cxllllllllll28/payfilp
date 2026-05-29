@@ -1,18 +1,5 @@
 /*
-Hacker-Mantle AI Gasless Yield Agent — 后端入口
-
-=== 知识点 ===
-
-Q1: package main 和 package config 有什么区别？
-	package main → 可执行程序的入口（必须有 func main()）
-	package config → 普通库包，被其他代码 import 使用
-	一个 Go 项目只有一个 package main，其余全是库包。
-
-Q2: defer client.Close() 为什么写在这里而不是 config 包里？
-	config 包只负责"加载配置"，不负责"管理连接"。
-	ethclient 的连接生命周期由 main 函数管理：
-	打开连接 → 传给路由 → 服务退出时关闭。
-	这遵循 Go 的"谁创建，谁关闭"原则。
+PayFlip - AI DeFi Yield Agent Backend Entrypoint
 */
 
 package main
@@ -29,11 +16,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/yourusername/hacker-mantle-backend/config"
-	"github.com/yourusername/hacker-mantle-backend/internal/api"
-	"github.com/yourusername/hacker-mantle-backend/internal/scheduler"
-	"github.com/yourusername/hacker-mantle-backend/internal/services"
-	"github.com/yourusername/hacker-mantle-backend/internal/tx"
+	"github.com/yourusername/payflip-backend/config"
+	"github.com/yourusername/payflip-backend/internal/api"
+	"github.com/yourusername/payflip-backend/internal/scheduler"
+	"github.com/yourusername/payflip-backend/internal/services"
+	"github.com/yourusername/payflip-backend/internal/tx"
 )
 
 func main() {
@@ -47,7 +34,7 @@ func main() {
 	}
 	defer client.Close()
 
-	fmt.Printf("✅ 已连接 Mantle 主网 (ChainID: %d)\n", cfg.ChainID)
+	fmt.Printf("已连接到 Mantle 主网 (ChainID: %d)\n", cfg.ChainID)
 
 	// 3. 加载协议注册表
 	registry, err := config.LoadProtocolRegistry("config/protocols.json")
@@ -68,7 +55,7 @@ func main() {
 	}
 	sched := scheduler.NewScheduler(30*time.Minute, schedCb)
 
-	// 设置自动换仓执行器 — 从私钥恢复钱包，发送 swap+stake 交易
+	// 设置自动换仓执行器：从私钥恢复钱包，发送 swap+stake 交易
 	sched.SetExecutor(func(wallet scheduler.ManagedWallet, d scheduler.RebalanceDecision) error {
 		privKey, err := crypto.HexToECDSA(wallet.PrivateKey)
 		if err != nil {
@@ -88,10 +75,10 @@ func main() {
 		}
 		defer txmgr.Stop()
 		executor := services.NewIntentExecutor(txmgr, rpcURL, chainID.Int64(), tx.NewBuilder(txmgr))
-		// 构造换仓步骤：取出旧仓 → 换成目标代币 → 存入新池
+		// 构造换仓步骤：取出旧仓、换成目标代币、存入新池
 		// 简化版：执行 intent "质押到最佳池"
 		svc := services.NewIntentService(tx.NewBuilder(txmgr), registry)
-		plan, err := svc.BuildPlan(fmt.Sprintf("把所有资金都存到 %s 收益池", d.ToProtocol))
+		plan, err := svc.BuildPlan(fmt.Sprintf("把所有资金都存到 %s 的最佳收益池", d.ToProtocol))
 		if err != nil {
 			return fmt.Errorf("解析调仓意图: %w", err)
 		}
@@ -106,9 +93,9 @@ func main() {
 	intentHandler := api.NewIntentHandler(intentSvc, sched)
 	yieldHandler := api.NewYieldHandler(yieldSvc, sched)
 
-	// 启动收益调度器（30分钟检查一次最佳APY）
+	// 启动收益调度器（30分钟检查一次最佳 APY）
 	sched.Start()
-	fmt.Println("⏰ 收益调度器已启动（周期: 30分钟）")
+	fmt.Println("收益调度器已启动（每 30 分钟检查一次）")
 
 	// 4. 初始化路由（带收益接口）
 	router := api.SetupRouterWithYield(intentHandler, yieldHandler)
@@ -120,7 +107,7 @@ func main() {
 	}
 
 	go func() {
-		fmt.Println("🚀 服务已启动: http://localhost:8080")
+		fmt.Println("🚀 服务已启动 http://localhost:8080")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("服务启动失败: %v", err)
 		}
@@ -135,5 +122,5 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(ctx)
-	fmt.Println("✅ 服务已安全关闭")
+	fmt.Println("服务已安全关闭")
 }

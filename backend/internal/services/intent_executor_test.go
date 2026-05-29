@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
 
-	"github.com/yourusername/hacker-mantle-backend/config"
-	"github.com/yourusername/hacker-mantle-backend/internal/tx"
+	"github.com/yourusername/payflip-backend/config"
+	"github.com/yourusername/payflip-backend/internal/tx"
 )
 
 func TestMultiStep_ApproveSwap(t *testing.T) {
@@ -35,7 +35,7 @@ func TestMultiStep_ApproveSwap(t *testing.T) {
 	svc := NewIntentService(builder, registry)
 
 	// ── 1. AI 意图解析 ──
-	input := "帮我把 1 USDT 换成 MNT"
+	input := "帮我�?1 USDT 换成 MNT"
 	plan, err := svc.BuildPlan(input)
 	if err != nil { t.Fatalf("BuildPlan: %v", err) }
 
@@ -53,7 +53,7 @@ func TestMultiStep_ApproveSwap(t *testing.T) {
 	}
 
 	// ── 3. 执行 ──
-	fmt.Println("\n========== 执行中 ==========")
+	fmt.Println("\n========== 执行�?==========")
 	hash, err := executor.ExecuteCalldata(context.Background(), targets, values, datas)
 	if err != nil {
 		t.Fatalf("ExecuteCalldata: %v", err)
